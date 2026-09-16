@@ -1,6 +1,6 @@
 # UoM Data Cleansing Agent — Release 1 POC Implementation Plan
 
-**Purpose:** Build a complete proof-of-concept implementation of the Release 1 requirements using **React + FastAPI + MongoDB**, with Excel file-in/file-out, deterministic unit conversion, a narrow AI/ADK inference path, Commercial review, and final Excel export.
+**Purpose:** Build a complete proof-of-concept implementation of the Release 1 requirements using **React + FastAPI + MongoDB**, with a chat-first Excel file-in/file-out workflow, deterministic unit conversion, a narrow AI/ADK inference path, read-only result inspection, and final Excel export.
 
 **Primary source of truth:** `PRD_UoM_Data_Cleansing_Agent_R1_v1.1 (1).docx` (Draft v1.1, 11 Sep 2026) and `20260908_UoM_Snapshot_v0.2.xlsx`.
 
@@ -8,7 +8,15 @@
 
 **POC scope amendment (15 Sep 2026):** The unit-mapping administration/approval UI is
 deferred. Deterministic rules are maintained as a validated, version-controlled ruleset
-in the repository. Commercial review of row-level machine proposals remains in scope.
+in the repository. Row-level A/B/C results remain visible as a read-only inspection panel.
+
+**POC workflow amendment (16 Sep 2026):** The primary UI is an agent chat. The assistant
+requests the workbook and exposes an upload action; the composer also always exposes a
+`+` attachment action. Processing status, headline statistics, a compact preview, and
+workbook download appear in the conversation. A/B/C results open in a right-side,
+read-only panel. Review is optional and pending decisions never block export. This
+amendment supersedes older approval-gate, approve/reject/override, and separate review-page
+requirements elsewhere in this document.
 
 > Important: This document is an implementation plan for the POC. Where the PRD contains an unresolved business decision, this plan does **not invent the answer**. It builds a configurable or safe fallback path and calls out the open decision explicitly.
 
@@ -21,7 +29,7 @@ Build this as a working monorepo POC. Do not replace requirements with a generic
 1. Use **React + TypeScript + Vite** for the frontend.
 2. Use **Python 3.12+ + FastAPI + Pydantic v2** for the backend.
 3. Use **MongoDB** for job state, row processing results, proposals, and review decisions. Deterministic unit rules live in a version-controlled ruleset in the codebase, not in MongoDB.
-4. Use **openpyxl** for Excel input/output.
+4. Use **openpyxl** for validated Excel input. For output, patch only the three standardized cells in the XLSX worksheet XML so the complete 23 MB workbook is not loaded and re-serialized.
 5. Use **Google ADK + Gemini** behind an `InferenceProvider` interface. Provide a deterministic mock provider for tests and local development.
 6. Use **local filesystem storage for POC files** behind a `FileStorage` abstraction. Do not use GridFS. A GCS adapter may be added later without changing business logic.
 7. Never send Group A or Group B deterministic work to the LLM.
@@ -30,7 +38,7 @@ Build this as a working monorepo POC. Do not replace requirements with a generic
 10. Never let the rule engine or AI layer depend on Excel column letters/positions. Business logic uses canonical field names only.
 11. Never read `product_description` or `product_description_local` for AI inference. Preserve them in the workbook, but exclude them from processing DTOs.
 12. Never modify `item_size_value` or `item_size_unit`.
-13. No value is applied to the final output until a human has approved or overridden the corresponding proposal.
+13. Export applies available machine proposals by default. A/B/C inspection is optional and does not gate download.
 14. Do not use live web search, external product APIs, images, or data-lake integration in R1.
 15. Implement feature flags/configuration for unresolved/provisional requirements, especially pack-size inference.
 16. All processing must be reproducible, testable, and traceable to PRD requirement IDs.
@@ -67,8 +75,8 @@ The POC must:
 - deterministically convert rows that can be solved by a business-approved rule committed to the versioned ruleset;
 - use AI only for rows that cannot be solved from structured legacy size/UOM data;
 - detect description disagreements;
-- show all machine proposals to Commercial users;
-- support approve / reject / override;
+- show representative proposals in chat and all A/B/C results in a read-only side panel;
+- allow export without completing review;
 - generate a corrected Excel workbook while preserving the original workbook structure;
 - measure accuracy using the PRD benchmark framework where the data supports it.
 

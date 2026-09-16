@@ -87,3 +87,7 @@ export const decideItem = (jobId: string, row: number, action: "APPROVE" | "REJE
   method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action }),
 });
 export const createExport = (jobId: string) => request(`/api/jobs/${jobId}/export`, { method: "POST" });
+export const sendChatMessage = (message: string) => request<{ intent: string; action: string | null; message: string }>("/api/chat/messages", {
+  method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message }),
+});
+export const getPreview = (jobId: string) => request<{ items: JobItem[] }>(`/api/jobs/${jobId}/preview?limit=9`);
