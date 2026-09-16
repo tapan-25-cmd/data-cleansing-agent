@@ -32,7 +32,8 @@ Build this as a working monorepo POC. Do not replace requirements with a generic
 4. Use **openpyxl** for validated Excel input. For output, patch only the three standardized cells in the XLSX worksheet XML so the complete 23 MB workbook is not loaded and re-serialized.
 5. Use **Google ADK + Gemini** behind an `InferenceProvider` interface. Provide a deterministic mock provider for tests and local development.
 6. Use **local filesystem storage for POC files** behind a `FileStorage` abstraction. Do not use GridFS. A GCS adapter may be added later without changing business logic.
-7. Never send Group A or Group B deterministic work to the LLM.
+7. Never send Group A or Group B unit conversion to the LLM. A Group B pack-only call
+   is allowed only after deterministic pack extraction finds an unresolved pack clue.
 8. Keep deterministic unit rules in a declarative, versioned codebase ruleset with schema validation and automated tests. Do not build a mapping administration or approval UI for this POC.
 9. Never let the LLM directly write Excel cells.
 10. Never let the rule engine or AI layer depend on Excel column letters/positions. Business logic uses canonical field names only.
@@ -103,9 +104,10 @@ The implementation must reproduce this profile before business logic is consider
 | Raw department rows | 7,648 | 5,652 | 13,300 |
 | Purged / skipped | 444 | 314 | 758 |
 | Live / in scope | 7,204 | 5,338 | 12,542 |
-| Group A — already base unit | 7,018 | 4,957 | 11,975 |
-| Group B1 — non-base standardized value | 137 | 205 | 342 |
+| Group A — validated canonical K/L/M | 7,018 | 4,957 | 11,975 |
+| Group B1 — non-base standardized value | 117 | 187 | 304 |
 | Group B2 — standardized blank, legacy UOM exists | 17 | 153 | 170 |
+| Group B3 — standardized-field canonicalization | 20 | 18 | 38 |
 | Group B total | 154 | 358 | 512 |
 | Group C — no legacy UOM, descriptions required | 32 | 23 | 55 |
 | Unexpected live shapes | 0 | 0 | 0 |
@@ -118,7 +120,7 @@ Expected headline result:
 =12,542 live rows
 
 11,975 Group A
-   512 Group B (342 B1 + 170 B2)
+   512 Group B (304 B1 + 170 B2 + 38 B3)
     55 Group C
 ```
 
@@ -126,9 +128,14 @@ If the application does not reproduce these counts on the supplied baseline work
 
 ## 2.3 Actual Group B unit distribution
 
-**Grocery 2 — B1:** `OZ`=40, `KG`=34, `G`=20, `LT`=18, `PC`=16, `PK`=2, `PACK`=2, `L`=2, `LB`=1, `FZ`=1, `Pack`=1
+**Grocery 2 — B1:** `OZ`=40, `KG`=34, `LT`=18, `PC`=16, `PK`=2, `PACK`=2, `L`=2, `LB`=1, `FZ`=1, `Pack`=1
 
-**Dairy & Frozen — B1:** `LT`=67, `PC`=46, `KG`=40, `OZ`=34, `G`=18
+**Dairy & Frozen — B1:** `LT`=67, `PC`=46, `KG`=40, `OZ`=34
+
+**B3 canonicalization:** Grocery 2 `G`=20; Dairy & Frozen `G`=18. These
+rows have complete standardized fields, but `G` is normalized to canonical `GM` and the
+existing standardized numeric values are preserved. Nearest-whole rounding applies only
+to B1/B2 measurement conversions, not B3 representation cleanup.
 
 **Grocery 2 — B2 legacy units:** `GM`=7, `PK`=4, `EA`=4, `PC`=1, `ML`=1
 
@@ -1002,9 +1009,9 @@ def classify(row):
     if row.department not in configured_departments:
         return OUT_OF_SCOPE
 
-    # Group A: standardized fields already complete and UOM is a base unit.
+    # Complete base-unit candidates pass the Group A validation gate first.
     if populated(row.standard_size)        and row.standard_uom in BASE_UNITS        and populated(row.standard_pack_size):
-        return A
+        return validate_group_a(row)
 
     # B1 / Scope 1: standardized size/UOM present but UOM is not base.
     if populated(row.standard_size)        and populated(row.standard_uom)        and row.standard_uom not in BASE_UNITS:
@@ -1029,11 +1036,19 @@ Do not collapse discrepancy state into A/B/C. It is a separate flag.
 
 # 17. Group A behavior
 
-Expected: **11,975** live rows.
+Expected on v0.2: **11,975** validated live rows.
 
 Behavior:
 
-- no proposal;
+- require positive finite numeric K;
+- require exact canonical L (`EA`, `GM`, `ML`, `FT`);
+- require positive whole-number M;
+- reject formulas, Excel errors, invalid types, and duplicate item numbers;
+- retain legacy and explicit-description comparisons as non-blocking warnings until
+  their source-of-truth policy is confirmed;
+- route known spelling/casing aliases to B3 deterministic canonicalization;
+- route explicit bilingual measurement conflicts to validation review;
+- no proposal for rows that pass;
 - no automatic write;
 - no normal review queue entry;
 - preserve K/L/M as-is;
@@ -1048,8 +1063,9 @@ Do not send Group A to Gemini merely to "verify" it during normal cleansing.
 
 Expected: **512** rows total.
 
-- Scope 1 / B1: 342
+- Scope 1 / B1: 304
 - Scope 2a / B2: 170
+- Canonicalization / B3: 38
 
 No language model is allowed in this path.
 
@@ -1088,7 +1104,7 @@ For multiply mapping:
 
 ```text
 raw_target = Decimal(source_value) * Decimal(factor)
-final_target = apply_configured_rounding(raw_target, target_uom)
+final_target = excel_round_half_away_from_zero(raw_target, 0)
 ```
 
 Use `Decimal`, not binary float, for conversion logic.
@@ -1121,7 +1137,8 @@ Known from current PRD:
 - `FZ` factor is unresolved (US vs Imperial fluid ounce) — keep it out of the ruleset until the business decision is confirmed;
 - catch weight `AV KG` is unresolved — do not force normal conversion;
 - `SET` and `PR` collapsing to `EA` remains open;
-- rounding policy remains open;
+- Group B1/B2 converted standardized size uses Excel-equivalent nearest-whole rounding;
+- Group B3 canonicalization preserves existing numeric K/M values;
 - source unit `ST` appears in current B2 data and should remain unmapped unless confirmed.
 
 Safe POC behavior for unresolved units: `NO_RULE` and human review.
@@ -1333,17 +1350,30 @@ Therefore a correct POC may produce many `NOT_IN_DESCRIPTION` results. That is e
 
 ---
 
-# 21. Pack-size module — provisional
+# 21. Pack-size module — implemented evidence-first pipeline
 
-PRD FR-14 to FR-17 are provisional pending O-3.
-
-Implement the capability behind:
+The capability is controlled independently through:
 
 ```text
 PACK_SIZE_INFERENCE_ENABLED=true/false
 ```
 
-The module must be independently disableable without affecting UOM conversion.
+Disabling the agent fallback does not affect deterministic UOM conversion or deterministic
+pack extraction.
+
+Processing order for Group B and C:
+
+1. preserve a valid positive whole-number M;
+2. normalize a valid numeric-text M without changing its value;
+3. extract explicit pack patterns deterministically;
+4. call the agent only when pack-like text is present but deterministic parsing cannot
+   resolve it safely (Group C's normal measurement call may also return pack evidence);
+5. accept an agent M only when the positive whole count occurs in an exact cited
+   description fragment;
+6. leave M blank on no evidence, conflict, invalid response, or provider error.
+
+K/L and M retain independent field-level provenance. For a Group B row, K/L can be
+`RULE` while M is `RULE`, `AI_INFERENCE`, `EXISTING`, or unresolved.
 
 Rules:
 
@@ -1357,7 +1387,8 @@ pack size = 4
 
 not `800 / ML / 1`.
 
-2. Do not treat every piece count as pack size.
+2. Do not treat every piece count as pack size. Bare container/content counts require a
+directly associated per-unit measurement or explicit pack wording.
 
 Example acceptance fixture:
 
@@ -1365,11 +1396,13 @@ Example acceptance fixture:
 IBN ABL BRAIS SAU(4PCS) 200GM
 ```
 
-Expected pack size according to PRD: `1`, not `4`.
+Do not propose `4`. Preserve an existing valid M (including `1`); otherwise route the
+loose `4PCS` clue to the agent, which must decline or return ambiguity without stronger
+pack evidence.
 
 3. If pack size is silent, do not invent it.
 
-4. O-8 remains open: whether blank pack size is semantically different from `1`. Keep this in configuration and do not silently fill `1` everywhere.
+4. O-8 remains open: blank pack size remains different from `1`; never silently fill `1`.
 
 Recommended model:
 
@@ -1377,7 +1410,31 @@ Recommended model:
 size/uom proposal decision != pack proposal decision
 ```
 
-This permits deterministic size/UOM bulk approval while pack remains individually pending.
+This permits deterministic size/UOM processing while pack resolution has independent
+provenance and failure handling. Job statistics separately report existing, normalized,
+deterministic, agent-proposed, declined, conflicting, missing, disabled, and error outcomes.
+
+## 21.1 v0.2 workbook pack audit
+
+The complete 66,082-row workbook was processed locally with the deterministic pipeline
+and mock provider after implementation. The A/B/C invariants remained unchanged.
+
+For the 512 Group B rows:
+
+- 342 already contain a valid positive whole-number M and are preserved;
+- 154 contain no explicit pack evidence and remain unchanged;
+- 16 contain pack-like but unsafe/ambiguous clues and are selected for pack-only agent
+  fallback;
+- zero rows contain a deterministic explicit multipack pattern strong enough to fill M;
+- zero deterministic conflicts or invalid existing M values were found.
+
+All 55 Group C rows continue through the normal measurement agent call, which may also
+return separately evidenced pack size. With the mock provider, the 16 B candidates and
+55 C rows safely decline, producing 71 `pack_agent_declined` results and no M guesses.
+Examples of the B fallback candidates include coupon/gift descriptions containing
+`12PCS`, `4PC`, `1PC`, `GIFT PACK`, or `REFILL PACK`; these are intentionally not
+accepted by the deterministic parser because the count may describe product contents
+or voucher wording rather than a sellable pack.
 
 ---
 
@@ -1974,7 +2031,8 @@ Persist processing stage/progress in Mongo so UI state survives refresh.
 - output target restricted to base units;
 - rule/factor captured;
 - repeated conversion produces identical result;
-- rounding strategy tests once O-7 is configured.
+- Excel-equivalent nearest-whole B1/B2 conversion tests, including half values;
+- B3 canonicalization tests proving existing numeric K/M values are not rounded.
 
 ### AI result validation
 
@@ -2020,8 +2078,9 @@ Must assert:
 444 + 314 purged
 7204 + 5338 live
 7018 + 4957 Group A
-137 + 205 B1
+117 + 187 B1
 17 + 153 B2
+20 + 18 B3
 32 + 23 Group C
 0 unexpected live shapes
 ```
@@ -2062,9 +2121,9 @@ Do not block coding the architecture on these, but do not invent final behavior 
 |---|---|
 | O-1 Catch weight `AV KG` | Route to review / `CATCH_WEIGHT_UNRESOLVED` until decision. |
 | O-2 `FZ` conversion | Keep unmapped. Item `185611` should become `NO_RULE` until factor chosen. |
-| O-3 Pack-size reliability | Build behind `PACK_SIZE_INFERENCE_ENABLED`; can be disabled. |
+| O-3 Pack-size reliability | Evidence-first B/C pipeline implemented behind `PACK_SIZE_INFERENCE_ENABLED`; deterministic extraction remains active when agent fallback is disabled. |
 | O-6 SET / PR -> EA | No mapping until confirmed. |
-| O-7 rounding | Configurable; do not hide in code. |
+| O-7 rounding | Closed for POC: B1/B2 conversions use Excel-equivalent nearest whole; Group A and B3 existing numeric values are never rounded. |
 | O-8 blank pack vs 1 | Do not blanket-fill 1 until decided. |
 | O-9 indicator names/vocabulary | Configurable names and value vocabulary. |
 | O-10 I/J vs descriptions disagree | Flag for review; do not silently establish precedence. |
@@ -2314,14 +2373,13 @@ agent, prompt, model, ADK version, evidence, and validation provenance.
 - approve/reject/override;
 - filters.
 
-## Phase 9 — pack-size provisional module
+## Phase 9 — pack-size evidence pipeline — complete
 
-- feature flag;
-- pack schema/logic;
-- PRD test fixtures;
-- per-field decision separation.
-
-Can be disabled if O-3 fails.
+- deterministic patterns and safe ambiguity handling;
+- selective pack-only ADK fallback;
+- strict whole-number and literal-evidence validation;
+- field-level provenance and pack outcome statistics;
+- PRD fixture coverage and export preservation.
 
 ## Phase 10 — discrepancy detection
 
@@ -2437,7 +2495,7 @@ The POC is complete when all of the following are true:
 - [ ] Only `UoM_Field_Extract` is processed.
 - [ ] Current profile exactly reproduces 13,300 / 758 / 12,542 / 11,975 / 512 / 55.
 - [ ] Purged rows are skipped and reported.
-- [ ] Group A is untouched.
+- [ ] Group A passes deterministic K/L/M validation and is otherwise untouched.
 - [ ] Group B uses the validated, version-controlled deterministic ruleset with no LLM.
 - [ ] Unmapped units become `NO_RULE`, never guessed.
 - [ ] Group C uses ADK only on permitted raw fields.

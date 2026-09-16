@@ -7,8 +7,22 @@ export type Stats = {
   group_b?: number;
   group_b1?: number;
   group_b2?: number;
+  group_b3?: number;
   group_c?: number;
+  validation_review?: number;
+  group_a_validation_warnings?: number;
+  data_shape_error?: number;
   discrepancies?: number;
+  pack_existing_valid?: number;
+  pack_normalized_existing?: number;
+  pack_deterministic_proposed?: number;
+  pack_agent_proposed?: number;
+  pack_agent_declined?: number;
+  pack_conflict?: number;
+  pack_not_found?: number;
+  pack_agent_error?: number;
+  pack_agent_disabled?: number;
+  pack_invalid_existing?: number;
 };
 
 export type Job = {
@@ -42,6 +56,13 @@ export type JobItem = {
   rule: Record<string, string | null>;
   evidence: Array<{ field: string; fragment: string }>;
   confidence: string | null;
+  field_provenance?: Record<string, { method?: string; rule_id?: string; confidence?: string }>;
+  pack_result?: { status?: string; reason_code?: string; pack_size?: string | null } | null;
+  validation?: {
+    status: string;
+    issues: Array<{ code: string; field: string; severity: string; message: string }>;
+    canonical_values: Record<string, string>;
+  } | null;
   discrepancy: { flagged: boolean; details: unknown[] };
   review: { overall_status: string };
 };

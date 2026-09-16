@@ -3,7 +3,7 @@
 ## 1. Decision
 
 Build one real Google ADK `LlmAgent` named `uom_description_inference_agent` for
-Group C / Scope 2b rows only.
+Group C measurement extraction and selective B/C pack fallback.
 
 The agent is an evidence extractor. It does not own conversion rules, write workbook
 cells, call external systems, browse the web, or decide whether a proposal is accepted.
@@ -34,7 +34,7 @@ backend/app/agents/
 ├── adk_provider.py                # Runner/session/event adapter
 ├── uom_inference_agent.py         # real LlmAgent + ADK App definition
 └── prompts/
-    └── uom_inference_v1.md        # versioned system instruction
+    └── uom_inference_v2.md        # versioned system instruction
 
 backend/tests/
 ├── unit/
@@ -54,7 +54,8 @@ never construct an ADK agent directly; it receives an `InferenceProvider` from
 
 ## 3. Agent input boundary
 
-The input model contains exactly these optional fields:
+The input model contains a task discriminator, optional known measurement context for
+`PACK_ONLY`, and these optional product-text fields:
 
 ```text
 item_brand_eng
@@ -65,9 +66,9 @@ web_description_eng
 web_description_chi
 ```
 
-The input schema uses `extra="forbid"`. It must reject item identifiers, hierarchy,
-legacy I/J, standardized K/L/M, concatenated descriptions, workbook rows, file paths,
-URLs, and arbitrary metadata.
+The input schema uses `extra="forbid"`. It rejects item identifiers, hierarchy,
+legacy I/J, workbook rows, file paths, URLs, and arbitrary metadata. Known measurement
+context is backend-generated and cannot be returned or modified by a pack-only result.
 
 Serialize the validated Pydantic model to one JSON user message. Do not build prompts
 by concatenating unlabeled values.
@@ -88,6 +89,7 @@ class ObservedMeasurement(BaseModel):
 class AdkInferenceOutput(BaseModel):
     status: Literal[
         "PROPOSAL",
+        "PACK_PROPOSAL",
         "NOT_IN_DESCRIPTION",
         "AMBIGUOUS",
         "CONFLICT",
@@ -119,7 +121,7 @@ root_agent = LlmAgent(
         model=settings.gemini_model,
         retry_options=types.HttpRetryOptions(attempts=3),
     ),
-    instruction=load_versioned_prompt("uom_inference_v1.md"),
+    instruction=load_versioned_prompt("uom_inference_v2.md"),
     input_schema=InferenceRequest,
     output_schema=AdkInferenceOutput,
     output_key="uom_inference_result",
@@ -189,7 +191,8 @@ After every ADK response, enforce all of the following outside the model:
 7. The observed UOM resolves through `RuleRegistry`; otherwise route to `NO_RULE`.
 8. Standardized output UOM is produced only by `RuleEngine` and is one of
    `EA`, `GM`, `ML`, `FT`.
-9. Any invalid response becomes `AI_INVALID_RESPONSE` and requires human review.
+9. `PACK_ONLY` cannot return measurement observations and pack evidence cannot cite brand fields.
+10. Any invalid response becomes `AI_INVALID_RESPONSE` or `PACK_AGENT_ERROR` without stopping other rows.
 
 The ADK agent never writes MongoDB or Excel directly.
 
@@ -226,7 +229,8 @@ committed to the repository.
 - Do not retry schema-invalid or evidence-invalid output endlessly.
 - Apply a configurable per-item timeout.
 - After exhaustion, persist `AI_PROVIDER_ERROR` and continue the job.
-- Never send Group A or Group B through the provider after any failure.
+- Never send Group A or Group B unit conversion through the provider. Only unresolved
+  pack clues may create a Group B `PACK_ONLY` call.
 
 ## 11. Provenance and observability
 

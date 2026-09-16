@@ -4,6 +4,12 @@ Release 1 proof of concept for cleansing Grocery 2 and Dairy & Frozen unit-of-me
 
 The system keeps deterministic conversion rules in a validated, version-controlled YAML
 ruleset. There is intentionally no unit-mapping administration UI in this release.
+Complete standardized rows pass a deterministic Group A validation gate before they are
+trusted. Group B conversions use Excel-equivalent nearest-whole rounding; existing Group
+A workbook values are preserved exactly.
+For Groups B and C, pack size follows an evidence-first pipeline: preserve valid M,
+extract explicit pack patterns deterministically, and use the agent only for unresolved
+pack clues. Blank pack size is never silently defaulted to `1`.
 
 ## Run locally
 

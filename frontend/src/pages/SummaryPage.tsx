@@ -10,7 +10,7 @@ export function SummaryPage() {
   const stats = data.stats;
   const cards = [
     ["Department rows", stats.department_rows], ["Purged", stats.purged], ["Live", stats.live],
-    ["Already correct", stats.group_a], ["Rule fixes", stats.group_b], ["Needs interpretation", stats.group_c],
+    ["Validated", stats.group_a], ["Rule fixes", stats.group_b], ["Needs interpretation", stats.group_c],
   ];
   return <section className="page">
     <div className="page-heading"><div><p className="eyebrow">Processing complete</p><h1>Review the proposals.</h1></div><span className="status">{data.pending_review} pending</span></div>
