@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createExport, getItems, getJob, getPreview, getSummary, JobItem, sendChatMessage, startProcessing, uploadWorkbook } from "../api/client";
 
 type Message = { id: number; role: "user" | "assistant"; text: string; upload?: boolean };
@@ -17,6 +17,7 @@ function fieldComparison(current: unknown, proposed: unknown) {
 }
 
 export function ChatPage() {
+  const queryClient = useQueryClient();
   const [composer, setComposer] = useState("");
   const [messages, setMessages] = useState<Message[]>([
     { id: 1, role: "assistant", text: "Hello — I can cleanse and standardize unit-of-measure data in your workbook." },
@@ -44,6 +45,25 @@ export function ChatPage() {
   useEffect(() => {
     if (reviewReady) setPanelOpen(true);
   }, [reviewReady]);
+
+  const startNewConversation = () => {
+    if ((processing || exporting) && !window.confirm("Start a new conversation? The current job will continue in the background, but it will no longer be shown in this chat.")) return;
+    const previousJobId = jobId;
+    localStorage.removeItem("uom-current-job");
+    setJobId("");
+    setMessages([
+      { id: 1, role: "assistant", text: "Hello — I can cleanse and standardize unit-of-measure data in your workbook." },
+    ]);
+    nextMessage.current = 2;
+    setComposer("");
+    setPanelOpen(false);
+    setGroup("A");
+    setError("");
+    chat.reset();
+    exporter.reset();
+    if (fileInput.current) fileInput.current.value = "";
+    if (previousJobId) queryClient.removeQueries({ predicate: query => query.queryKey.includes(previousJobId) });
+  };
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
@@ -80,7 +100,10 @@ export function ChatPage() {
     <section className="chat-main">
       <header className="chat-header">
         <div><p className="eyebrow">UOM cleansing agent</p><h2>Data cleansing conversation</h2></div>
-        {reviewReady && <button className="secondary" onClick={() => setPanelOpen(value => !value)}>{panelOpen ? "Hide" : "View"} A/B/C results</button>}
+        <div className="chat-header-actions">
+          {reviewReady && <button className="secondary" onClick={() => setPanelOpen(value => !value)}>{panelOpen ? "Hide" : "View"} A/B/C results</button>}
+          <button className="new-conversation" onClick={startNewConversation}><span aria-hidden="true">＋</span> New conversation</button>
+        </div>
       </header>
       <div className="conversation">
         {messages.map(message => <div className={`message ${message.role}`} key={message.id}>
