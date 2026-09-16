@@ -65,7 +65,7 @@ Then set these values in `.env` and restart the backend:
 ```dotenv
 AI_PROVIDER=adk
 GEMINI_API_KEY=your-google-ai-studio-key
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 AI_TIMEOUT_SECONDS=60
 ```
 
