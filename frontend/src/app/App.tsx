@@ -1,5 +1,7 @@
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { ChatPage } from "../pages/ChatPage";
+import { PerformancePage } from "../pages/PerformancePage";
+import { ResultsPage } from "../pages/ResultsPage";
 
 export function App() {
   return <div className="app-shell">
@@ -14,6 +16,8 @@ export function App() {
     <main className="workspace">
       <Routes>
         <Route path="/" element={<ChatPage />} />
+        <Route path="/jobs/:jobId/results" element={<ResultsPage />} />
+        <Route path="/jobs/:jobId/performance" element={<PerformancePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>

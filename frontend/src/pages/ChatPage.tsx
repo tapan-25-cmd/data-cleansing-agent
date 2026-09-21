@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createExport, getItems, getJob, getPreview, getSummary, JobItem, sendChatMessage, startProcessing, uploadWorkbook } from "../api/client";
+import { Link } from "react-router-dom";
+import { createExport, getItems, getJob, getPreview, getSummary, Job, JobItem, sendChatMessage, startProcessing, uploadWorkbook } from "../api/client";
 
 type Message = { id: number; role: "user" | "assistant"; text: string; upload?: boolean };
 const starter = "Please do the unit measurement";
@@ -14,6 +15,23 @@ function display(value: unknown) {
 function fieldComparison(current: unknown, proposed: unknown) {
   const hasProposal = proposed !== null && proposed !== undefined && proposed !== "";
   return <div className="field-comparison"><span>{display(current)}</span>{hasProposal && <><b>→</b><strong>{display(proposed)}</strong></>}</div>;
+}
+
+const stageLabels: Record<string, string> = {
+  VALIDATING: "Validating workbook",
+  PROFILING: "Reading workbook",
+  PROCESSING_RULES: "Validating rows and applying unit rules",
+  PROCESSING_DESCRIPTIONS: "Running description inference",
+  CHECKING_DISCREPANCIES: "Checking description discrepancies",
+  SAVING_RESULTS: "Saving results",
+};
+
+function progressText(progress?: Job["progress"]) {
+  if (!progress) return "Starting…";
+  const noun = progress.unit === "AGENT_CALLS" ? "agent checks completed" : "rows processed";
+  const processed = (progress.processed || 0).toLocaleString();
+  const total = progress.total ? ` of ${progress.total.toLocaleString()}` : "";
+  return `${processed}${total} ${noun} · ${progress.percent || 0}% overall`;
 }
 
 export function ChatPage() {
@@ -95,7 +113,8 @@ export function ChatPage() {
   const stats = summary.data?.stats;
   const exporting = exporter.isPending || job.data?.status === "EXPORTING";
   const exported = job.data?.status === "EXPORTED";
-  const stage = display(job.data?.progress.stage).replaceAll("_", " ");
+  const rawStage = display(job.data?.progress.stage);
+  const stage = stageLabels[rawStage] || rawStage.replaceAll("_", " ");
   return <div className={`chat-layout ${panelOpen && reviewReady ? "with-review" : ""}`}>
     <section className="chat-main">
       <header className="chat-header">
@@ -117,8 +136,8 @@ export function ChatPage() {
             <div className="typing-loader" aria-hidden="true"><span /><span /><span /></div>
             <div>
               <strong className="shimmer-text">{stage}</strong>
-              <p>{job.data?.progress.processed || 0} of {job.data?.progress.total || "—"} rows processed</p>
-              <div className="shimmer-rail" />
+              <p>{progressText(job.data?.progress)}</p>
+              <div className="progress-rail" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={job.data?.progress.percent || 0}><span style={{ width: `${job.data?.progress.percent || 0}%` }} /></div>
             </div>
           </div>
         </div>}
@@ -126,7 +145,7 @@ export function ChatPage() {
         {reviewReady && stats && <div className="message assistant result-message">
           <div className="avatar">DFI</div>
           <div className="bubble result-card">
-          <div className="result-heading"><div><p className="eyebrow">Processing complete</p><h2>Your workbook is ready</h2></div><button className="secondary" onClick={() => setPanelOpen(true)}>View A/B/C</button></div>
+          <div className="result-heading"><div><p className="eyebrow">Processing complete</p><h2>Your workbook is ready</h2></div><div className="result-heading-actions"><button className="secondary" onClick={() => setPanelOpen(true)}>View A/B/C</button><Link className="secondary" to={`/jobs/${jobId}/results`}>View detailed results</Link><Link className="secondary" to={`/jobs/${jobId}/performance`}>Agent performance</Link></div></div>
           <p className="agent-result-summary">I processed <strong>{display(stats.department_rows)}</strong> selected rows. <strong>{display(stats.purged)}</strong> purged rows were excluded, leaving <strong>{display(stats.live)}</strong> live rows: <strong>{display(stats.group_a)}</strong> validated as A, <strong>{display(stats.group_b)}</strong> handled through deterministic B rules, and <strong>{display(stats.group_c)}</strong> sent through C description inference.</p>
           <div className="stat-strip">
             <span><small>Selected rows</small><strong>{display(stats.department_rows)}</strong></span>
@@ -138,6 +157,7 @@ export function ChatPage() {
           </div>
           <p className="validation-note">Pack size: {display((stats.pack_deterministic_proposed || 0) + (stats.pack_agent_proposed || 0))} proposed · {display(stats.pack_conflict || 0)} conflicts · {display(stats.pack_agent_error || 0)} agent errors.</p>
           {(stats.group_a_validation_warnings || 0) > 0 && <p className="validation-note">{display(stats.group_a_validation_warnings)} validated A rows include non-blocking legacy or description warnings.</p>}
+          {(stats.discrepancies || 0) > 0 && <p className="validation-note"><strong>{display(stats.discrepancies)}</strong> rows have English and local-language text that disagree ({display(stats.discrepancy_bilingual_measurement_conflicts || 0)} on size, {display(stats.discrepancy_bilingual_count_conflicts || 0)} on pack count). They need human review; no value was chosen automatically.</p>}
           {(summary.data?.rule_readiness?.uncovered_affected_rows || 0) > 0 && <p className="validation-note mapping-note"><strong>{display(summary.data?.rule_readiness?.uncovered_affected_rows)}</strong> rows use units without confirmed mapping rules: {summary.data?.rule_readiness?.uncovered_source_uoms?.join(", ")}.</p>}
           <div className="preview-table"><table><thead><tr><th>Item number</th><th>Group</th><th><span className="excel-column">K</span> Standardize Unit Size</th><th><span className="excel-column">L</span> Standardize UOM</th><th><span className="excel-column">M</span> Standardize Pack Size</th><th>Method</th></tr></thead><tbody>
             {preview.data?.items.map(item => <tr key={item.row_number}><td>{item.item_no}</td><td><b className={`group-pill group-${item.group.toLowerCase()}`}>{item.group}</b></td><td>{fieldComparison(item.original.standard_size, item.field_proposals.standard_size)}</td><td>{fieldComparison(item.original.standard_uom, item.field_proposals.standard_uom)}</td><td>{fieldComparison(item.original.standard_pack_size, item.field_proposals.standard_pack_size)}</td><td>{display(item.method)}</td></tr>)}
