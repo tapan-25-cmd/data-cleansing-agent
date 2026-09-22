@@ -112,7 +112,8 @@ export function ChatPage() {
 
   const stats = summary.data?.stats;
   const exporting = exporter.isPending || job.data?.status === "EXPORTING";
-  const exported = job.data?.status === "EXPORTED";
+  // A workbook from an earlier version of the exporter is rebuilt rather than offered.
+  const exported = job.data?.status === "EXPORTED" && job.data?.export_current !== false;
   const rawStage = display(job.data?.progress.stage);
   const stage = stageLabels[rawStage] || rawStage.replaceAll("_", " ");
   return <div className={`chat-layout ${panelOpen && reviewReady ? "with-review" : ""}`}>

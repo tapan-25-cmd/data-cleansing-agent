@@ -34,6 +34,7 @@ export type Job = {
   stats: Stats;
   progress: { stage: string; processed: number; total: number; percent: number; unit?: "ROWS" | "AGENT_CALLS" };
   rule_readiness?: RuleReadiness;
+  export_current?: boolean;
   error?: string;
 };
 
@@ -247,6 +248,11 @@ export type QualityCapability = {
   agreed: number;
   accuracy_percent: number | null;
   awaiting_decision: number;
+  scored: number;
+  correct: number;
+  misses: number;
+  data_problems: number;
+  match_percent: number | null;
   no_answer: number;
   run?: { finished_at?: string; model_id?: string; prompt_version?: string; agent_version?: string; errors?: number } | null;
   confirmed_correct: number;
@@ -261,6 +267,7 @@ export type QualityCapability = {
     excel: string;
     agrees: boolean;
     kind: string;
+    verdict: string;
     note: string;
   }>;
 };
@@ -316,6 +323,18 @@ export const verifyItem = (jobId: string, row: number, verdict: "CORRECT" | "WRO
 export type QualityReport = {
   version: string;
   dataset: { file_name?: string; departments: string[]; products: number };
+  engine: {
+    agent_version: string; prompt_version: string; ruleset_version: string | null;
+    guards_version: string | null; processed_with_guards: boolean;
+    ai_test_prompt_version: string | null; ai_test_is_current: boolean;
+    liquid_categories: string[]; mixed_categories: string[];
+  };
+  safety_checks: Array<{ key: string; check: string; effect: string; products: number; example: string }>;
+  ai_history: Array<{
+    finished_at: string; mode: string; prompt_version: string | null; model_id: string | null;
+    tested: number; same_answer: number; no_answer: number; differs: number; failed_calls: number;
+    accuracy_percent: number | null; input_tokens: number; output_tokens: number;
+  }>;
   result_accuracy: {
     rows: ResultAccuracyRow[];
     headline: {
@@ -325,8 +344,10 @@ export type QualityReport = {
     };
   };
   accuracy: {
-    checks: number; correct: number; percent: number | null; awaiting_decision: number;
-    no_answer: number; potential_percent: number | null;
+    checks: number; scored: number; correct: number; percent: number | null; misses: number;
+    data_problems: number; awaiting_decision: number; bad_values_stopped: number;
+    match_percent: number | null;
+    breakdown: Array<{ verdict: string; what_happened: string; counts_as: string; products: number }>;
   };
   workload: Array<{ key: string; outcome: string; products: number; share_percent: number | null }>;
   capabilities: QualityCapability[];
@@ -347,3 +368,13 @@ export const startAiReadingTest = (jobId: string, limit: number | null, onlyUnan
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit, only_unanswered: onlyUnanswered }),
 });
 export const getQuality = (jobId: string) => request<QualityReport>(`/api/jobs/${jobId}/quality`);
+
+export type AgentEvaluationRun = {
+  created_at?: string; cases_version: string; prompt_version: string | null; model_id: string | null;
+  cases: number; passed: number; pass_percent: number | null; wrong_and_confident: number;
+  failed_calls: number; tokens: number;
+  patterns: Array<{ pattern: string; cases: number; passed: number; wrong_and_confident: number }>;
+  rows: Array<{ id: string; pattern: string; item_no: string; text: string; expected: string; answer: string; passed: boolean; wrong_and_confident: boolean; rationale: string | null }>;
+};
+export const getAgentEvaluations = () => request<{ cases_version: string; cases: number; running: boolean; runs: AgentEvaluationRun[] }>("/api/evaluations/agent");
+export const runAgentEvaluation = () => request("/api/evaluations/agent/run", { method: "POST" });

@@ -308,3 +308,17 @@ button.status-badge.active b { background: rgba(255,255,255,.22); color: white; 
 .verdict.on.correct { border-color: #4c8a55; background: #e1f1d6; color: #2c5631; }
 .verdict.on.wrong { border-color: #b8584b; background: #fae5e1; color: #8b3f35; }
 @media (max-width: 900px) { .accuracy-headline { flex-direction: column; align-items: flex-start; } }
+.engine-strip { display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: center; margin-top: 14px; padding: 12px 18px; border: 1px solid #dfe7e4; border-radius: 12px; background: white; }
+.engine-strip span { display: grid; gap: 1px; }
+.engine-strip small { color: #7b8f98; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.engine-strip strong { color: #173c32; font-size: 13px; }
+.engine-warning { flex-basis: 100%; margin: 4px 0 0; padding: 9px 12px; border-radius: 8px; background: #fdf1d9; color: #7a5208; font-size: 12.5px; line-height: 1.5; }
+.category-note { margin: 12px 2px 0; font-size: 12.5px; line-height: 1.5; }
+.history-table { margin-bottom: 16px; }
+.show-rows { margin: 12px 2px; }
+.performance-section .section-heading { align-items: flex-start; }
+.engine-warnings { margin-top: 12px; display: grid; gap: 8px; }
+.headline-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.headline-facts span { display: inline-flex; align-items: baseline; gap: 7px; padding: 7px 13px; border-radius: 999px; background: rgba(255,255,255,.1); color: #d5e6dc; font-size: 12.5px; }
+.headline-facts strong { color: white; font-size: 15px; font-variant-numeric: tabular-nums; }
+.engineering-checks .engine-strip { margin: 12px 0; }
