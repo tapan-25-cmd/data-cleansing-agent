@@ -24,6 +24,8 @@ GROUPS = {
           "story": "Size and unit are empty, but the old system has a size and unit. The tool converts it with a fixed table, for example 1 KG becomes 1000 GM, and fills it in."},
     "C": {"name": "Group C · Read from the description",
           "story": "There is no old size to use. The tool reads the product description and fills in a size only if one is written there. If nothing is written, it leaves the row empty."},
+    "PURGED": {"name": "Purged · Skipped",
+               "story": "The product is marked as purged in the workbook and has no details. It is checked first, before any other rule, and skipped. Nothing is read or changed, and it comes back in the download exactly as it was."},
     "INVALID": {"name": "Incomplete row",
                 "story": "Only part of size, unit and pack is filled in. The tool does not guess the rest. It marks the row so someone can complete it."},
 }

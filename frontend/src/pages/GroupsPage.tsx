@@ -4,7 +4,7 @@ import { Link, useParams } from "react-router-dom";
 import { getShapes, ShapeRow } from "../api/client";
 import { JobTabs } from "./JobTabs";
 
-const groupTone: Record<string, string> = { A: "tone-no-change", B: "tone-auto-apply", C: "tone-observation-only", INVALID: "tone-invalid" };
+const groupTone: Record<string, string> = { A: "tone-no-change", B: "tone-auto-apply", C: "tone-observation-only", INVALID: "tone-invalid", PURGED: "tone-skipped" };
 const order = ["A", "B", "C", "INVALID"];
 
 export function GroupsPage() {
@@ -32,9 +32,9 @@ export function GroupsPage() {
       </section>
 
       <section className="ledger-shell acc-card">
-        <div className="ledger-meta"><strong>The groups</strong><span>one line each</span></div>
+        <div className="ledger-meta"><strong>The groups</strong><span>purged products are set aside first; the rest are sorted by the five boxes</span></div>
         <div className="gp-groups">
-          {order.map(g => <article key={g} className="gp-group"><span className={`status-badge ${groupTone[g]}`}>{d.groups[g].name}</span><p>{d.groups[g].story}</p></article>)}
+          {["PURGED", ...order].map(g => <article key={g} className="gp-group"><span className={`status-badge ${groupTone[g]}`}>{d.groups[g].name}</span><p>{d.groups[g].story}</p></article>)}
         </div>
       </section>
 
