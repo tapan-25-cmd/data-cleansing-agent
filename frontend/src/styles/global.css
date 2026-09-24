@@ -717,3 +717,21 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
 .gp-table td strong { display: block; color: #173f35; font-size: 13px; }
 .gp-table td small { display: block; color: #6e838c; font-size: 11.5px; line-height: 1.45; white-space: normal; max-width: 560px; }
 @media (max-width: 1050px) { .gp-boxes, .gp-groups { grid-template-columns: 1fr 1fr; } .gp-try { grid-template-columns: 1fr; } }
+
+/* Sequence tab: the pipeline-sequence.md document with its Mermaid diagrams. */
+.seq-actions { display: flex; gap: 8px; align-items: flex-start; }
+.seq-nav { flex-wrap: wrap; margin: 0 0 14px; }
+.seq-card { margin-bottom: 16px; }
+.seq-body { display: grid; gap: 14px; padding: 16px 22px 20px; }
+.seq-text { color: #2c4a56; font-size: 13.5px; line-height: 1.6; }
+.seq-text p { margin: 0 0 8px; }
+.seq-text h3 { margin: 6px 0 4px; color: #173f35; font: 700 14px Manrope; }
+.seq-text code { padding: 1px 5px; border-radius: 5px; background: #eef4f1; color: #173f35; font-size: 12px; }
+.seq-text table { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 12.5px; }
+.seq-text th { padding: 8px 10px; border-bottom: 1px solid #d9e3df; background: #f6f8f7; color: #637a83; font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-align: left; text-transform: uppercase; }
+.seq-text td { padding: 8px 10px; border-bottom: 1px solid #edf2f0; vertical-align: top; }
+.seq-diagram { position: relative; padding: 16px; border: 1px solid #e0e8e4; border-radius: 12px; background: #fbfcfb; }
+.seq-diagram.fit svg { display: block; width: 100%; max-width: 100%; height: auto; }
+.seq-diagram.actual { overflow: auto; max-height: 80vh; }
+.seq-diagram.actual svg { display: block; margin: 0 auto; max-width: none; }
+.seq-zoom { position: sticky; top: 0; float: right; z-index: 1; margin: -6px -6px 0 0; padding: 5px 11px; border: 1px solid #dfe7e4; border-radius: 999px; background: white; color: #4f6670; font-size: 11.5px; font-weight: 700; cursor: pointer; }

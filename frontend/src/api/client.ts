@@ -624,3 +624,6 @@ export type ShapeField = { key: string; name: string; column: string; example: s
 export type ShapeRow = { has: Record<string, boolean>; route: string; route_name: string; groups: OutcomeGroup[]; outcome: string; detail: string };
 export type Shapes = { fields: ShapeField[]; groups: Record<OutcomeGroup, { name: string; story: string }>; routes: Record<string, { name: string; story: string }>; rows: ShapeRow[] };
 export const getShapes = () => request<Shapes>("/api/rules/shapes");
+
+// --- Pipeline sequence (docs/pipeline-sequence.md) ---------------------------------
+export const getSequence = () => request<{ path: string; markdown: string }>("/api/rules/sequence");

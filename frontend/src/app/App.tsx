@@ -9,6 +9,7 @@ import { PipelinePage } from "../pages/PipelinePage";
 import { AccuracyPage } from "../pages/AccuracyPage";
 import { BlindTestPage } from "../pages/BlindTestPage";
 import { GroupsPage } from "../pages/GroupsPage";
+import { SequencePage } from "../pages/SequencePage";
 
 export function App() {
   return <div className="app-shell">
@@ -20,6 +21,7 @@ export function App() {
         <NavLink to="/groups">Groups</NavLink>
         <NavLink to="/rules">Rules</NavLink>
         <NavLink to="/pipeline">Pipeline</NavLink>
+        <NavLink to="/sequence">Sequence</NavLink>
       </nav>
       <div className="sidebar-note">Deterministic rules are version-controlled. No mapping administration is exposed here.</div>
     </aside>
@@ -38,6 +40,8 @@ export function App() {
         <Route path="/jobs/:jobId/groups" element={<GroupsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
+        <Route path="/jobs/:jobId/sequence" element={<SequencePage />} />
+        <Route path="/sequence" element={<SequencePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </main>
