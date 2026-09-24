@@ -1,7 +1,7 @@
 import { ReactNode, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { AccuracyGroup, AccuracySetRow, getAccuracySet, ReadingTestAnchor } from "../api/client";
+import { AccuracyGroup, AccuracySetRow, getAccuracySet } from "../api/client";
 
 const n = (v: number) => v.toLocaleString();
 const pct = (a: number, b: number) => (b ? `${(100 * a / b).toFixed(1)}%` : "—");
@@ -80,82 +80,106 @@ export function AccuracyGroupView({ jobId, g, spec }: { jobId: string; g: Accura
   </>;
 }
 
-export function specFor(g: AccuracyGroup, anchor: ReadingTestAnchor, jobId: string): GroupSpec {
+const ROUTE_WORDS: Record<string, string> = {
+  "Checked existing values": "checked existing values",
+  "Converted from the old size": "converted from the older size field",
+  "Read from the description": "read from the description",
+  "Half-filled row": "completed a half-filled row",
+  "Values could not be used": "found values that cannot be used",
+};
+
+function routeSentence(g: AccuracyGroup) {
+  if (!g.routes.length) return null;
+  return <p className="acc-lead">How they got here: {g.routes.map((r, i) => <span key={r.route}>{i ? (i === g.routes.length - 1 ? " and " : ", ") : ""}<b>{n(r.products)}</b> {ROUTE_WORDS[r.route] || r.route.toLowerCase()}</span>)}.</p>;
+}
+
+export function specFor(g: AccuracyGroup): GroupSpec {
   const c = Object.fromEntries(g.sets.map(s => [s.id, s.products]));
-  if (g.group === "B") {
-    const blank = c.b_blank_unit || 0, asked = g.flags - blank, converted = g.products - g.flags - g.wrong;
-    const done = converted + asked + blank, strict = g.confirmed + g.consistent + asked + blank;
-    return {
-      taskTitle: "Group B · What the tool was asked to do",
-      task: <>
-        <p className="acc-lead">In the workbook, columns I and J hold the size and unit as they were recorded in the older system, for example <b>1</b> and <b>KG</b>. Columns K, L and M are the standardised size, unit and pack size, and for these {n(g.products)} products they were empty.</p>
-        <p className="acc-lead">The task: take the value in I and J and write it into K and L in the standard units the business uses, <b>GM</b> for weight, <b>ML</b> for volume and <b>EA</b> for pieces, using the agreed conversion table and rounding to a whole number. So 1 KG becomes 1000 GM, 12 OZ becomes 340 GM, 2 LT becomes 2000 ML, and 6 PC becomes 6 EA. When the older unit is not in the table, or the conversion is not safe, the tool stops and asks instead of guessing.</p>
-      </>,
-      example: [{ label: "Column I · J", value: "1 KG" }, { label: "Column K · L", value: "1000 GM" }, { label: "Rule", value: "1 KG = 1000 GM, whole number", rule: true }],
-      segments: [{ key: "done", label: "Converted by the table", value: converted, cls: "j-done" }, { key: "ask", label: "Stopped and asked a person", value: asked, cls: "j-ask" }, { key: "blank", label: "Left blank on purpose", value: blank, cls: "j-blank" }, { key: "wrong", label: "Converted wrongly", value: g.wrong, cls: "j-wrong" }],
-      ways: [
-        { title: "Did the tool do its job on every product?", value: pct(done, g.products), fraction: `${n(done)} of ${n(g.products)}`, primary: true, text: "Every product was either converted by the table, handed to a person with a reason, or left blank with a reason. None was converted wrongly. This is the number for the job the tool was given." },
-        { title: "Can a second source in the file confirm the value?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} that could be checked · ${n(g.unverified)} left out`, text: `${n(g.confirmed)} products have the same size written in their own description and ${n(g.consistent)} agree with another record. For ${n(g.unverified)} products the older field is the only information the file holds, so nothing can confirm or deny them.` },
-        { title: "Strictest reading: only products with a second source count as proven", value: pct(strict, g.products), fraction: `${n(strict)} of ${n(g.products)}`, text: `For ${n(g.unverified)} products the older size field is the only place in the file where a size exists: the descriptions carry no size and no count. Their conversion is correct by the table, but there is no second source to trace it back to, so this reading leaves them unproven.` },
-      ],
-      waysNote: `Which number to use depends on the question. "Did the tool convert the older field correctly?" is the first. "Has something else in the file confirmed the older field?" is the second. The third is the second again, with the products that have no second source counted as unproven rather than left out.`,
-      exceptionsTitle: "The {n} products the tool did not decide alone",
-      exceptions: [
-        { id: "b_flag_ounce", title: "The ounce could mean weight or volume", why: "An ounce of a solid is 28 grams, an ounce of a liquid is 30 millilitres. These products sit in categories that hold both, and the text does not say which, so the tool shows its weight reading and asks a person to confirm." },
-        { id: "b_flag_pack", title: "A pack count was read from the text and needs confirming", why: "Vouchers and coupons. A count such as 12 can mean twelve vouchers sold together or one voucher that gives twelve boxes. A person confirms it before it is used." },
-        { id: "b_flag_text", title: "The description says a different size than the older field", why: "The older field says 220 GM, the product's own words say 255G. Two sources disagree, so the tool does not overwrite one with the other on its own." },
-        { id: "b_blank_unit", title: "Left blank: the older field uses a unit nobody has defined", why: "The unit ST is in no conversion table. Rather than guess what it means, the tool leaves the size empty and says why." },
-        { id: "b_text_disagrees", title: "Converted, but the description states a different size", why: "The table converted the older field, but the product's own words give another size. By the agreed rule the description wins, so these count against the tool.", wrong: true },
-      ],
-    };
-  }
+  const sum = (ids: string[]) => ids.reduce((t, id) => t + (c[id] || 0), 0);
   if (g.group === "A") {
-    const kept = g.right, done = g.right + g.flags, stated = g.confirmed + g.wrong;
+    const stated = g.confirmed + g.wrong;
     return {
-      taskTitle: "Group A · What the tool was asked to do",
+      taskTitle: "Group A · No change",
       task: <>
-        <p className="acc-lead">For these {n(g.products)} products columns K, L and M were already filled in: a size, a unit and a pack size, for example <b>70 GM × 5</b>. Columns I and J hold the older size field, for example <b>350 GM</b>, and the six description fields hold the product's own words.</p>
-        <p className="acc-lead">The task was not to change these values but to check them: compare K, L and M with the older field and with the descriptions, keep the values that hold up, and hand over the ones that do not, each with a reason a person can act on. A value is changed only after a person agrees.</p>
+        <p className="acc-lead">For these {n(g.products)} products the tool wrote nothing into columns K, L and M. The values were already there, for example <b>70 GM × 5</b>, and they held up when the tool compared them with the older size field in I and J and with the product's own descriptions.</p>
+        {routeSentence(g)}
+        <p className="acc-lead">The question for this group: <b>was keeping the values right?</b></p>
       </>,
       example: [{ label: "Column I · J", value: "350 GM" }, { label: "Column K · L · M", value: "70 GM × 5" }, { label: "Check", value: "70 × 5 = 350, the whole pack: kept", rule: true }],
-      segments: [{ key: "kept", label: "Kept, a record or the text agrees", value: kept, cls: "j-done" }, { key: "ask", label: "Handed to a person with a reason", value: g.flags, cls: "j-ask" }, { key: "none", label: "Kept, nothing to check against", value: g.unverified, cls: "j-blank" }, { key: "wrong", label: "Kept against the description", value: g.wrong, cls: "j-wrong" }],
+      segments: [{ key: "own", label: "Kept, the description agrees", value: g.confirmed, cls: "j-done" }, { key: "rec", label: "Kept, another record agrees", value: g.consistent, cls: "j-ask" }, { key: "none", label: "Kept, nothing to check against", value: g.unverified, cls: "j-blank" }, { key: "wrong", label: "Kept against the description", value: g.wrong, cls: "j-wrong" }],
       ways: [
-        { title: "Did the tool do its job on every product?", value: pct(done, done + g.wrong), fraction: `${n(done)} of ${n(done + g.wrong)} · ${n(g.unverified)} had nothing to check against`, primary: true, text: `Every product was either kept because the older field or the description agrees, or handed to a person with a reason. ${n(g.wrong)} were kept although the description states a different size; those count against the tool.` },
-        { title: "Can a second source in the file confirm the value?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} that could be checked · ${n(g.unverified)} left out`, text: `${n(g.confirmed)} products are confirmed by their own description. ${n(g.consistent)} agree with the older field, which is usually the same entry copied across, so that proves the two records are consistent rather than that both are right.` },
-        { title: "Strictest reading: only the product's own words count as proof", value: pct(g.confirmed, stated), fraction: `${n(g.confirmed)} of ${n(stated)} whose description states a size`, text: `Only ${n(stated)} products have a size written in their description. For the other ${n(g.products - stated)} the older field is the only other record, so nothing fully independent exists to trace them back to.` },
+        { title: "Was keeping right, where it can be checked?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} checked · ${n(g.unverified)} had nothing to check against`, primary: true, text: `${n(g.confirmed)} are confirmed by their own description and ${n(g.consistent)} agree with the older size field. ${g.wrong ? `${n(g.wrong)} were kept although the description states a different size; those count against the tool.` : "None was kept against its description."}` },
+        { title: "Strictest: only the product's own words count as proof", value: pct(g.confirmed, stated), fraction: `${n(g.confirmed)} of ${n(stated)} whose description states a size`, text: `The older field is usually the same entry copied across, so it proves consistency rather than correctness. Only ${n(stated)} products state a size in their own words.` },
+        { title: "Counting the unchecked as unproven", value: pct(g.right, g.products), fraction: `${n(g.right)} of ${n(g.products)}`, text: `For ${n(g.unverified)} products the file holds nothing to compare with: no usable older field and no size in the text. This reading leaves them unproven rather than out.` },
       ],
-      waysNote: `"Did the tool check every product and act correctly?" is the first number. "Does another record agree with the value?" is the second. The third asks the hardest question, whether the product's own words confirm it, and most products simply do not carry a size in their description.`,
-      exceptionsTitle: "The {n} products the tool did not decide alone",
+      waysNote: "The first number answers the group's question on every product that can be checked. The second accepts only the product's own words. The third counts every product that cannot be checked as unproven.",
+      exceptionsTitle: "The {n} products worth a look",
       exceptions: [
-        { id: "a_flag_silent", title: "The older field and Excel disagree, and the description says nothing", why: "Two records give different values and nothing readable in the product's words settles it. Only a person with the product can decide, so the tool asks." },
-        { id: "a_flag_conflict", title: "The description disagrees with Excel", why: "The product's own words state a different count or size, or the English and Chinese text disagree with each other. The tool never picks a side on its own." },
-        { id: "a_flag_split", title: "Same total, different split", why: "The older field's size times a count in the description equals Excel's total, for example 55 GM × 10 against 550 GM × 1. Whether to store it as one pack or ten is a business choice, so a person decides." },
-        { id: "a_flag_text_supports", title: "The older field differs, but the description supports Excel", why: "The description states what Excel already has. The review is asked only because the older field disagrees; the answer is most likely Excel." },
-        { id: "a_alarm", title: "Handed over, but the text shows Excel was right", why: "A second reading quoted words from the description that state Excel's value. These reviews were not needed and are the tool's cost, not the data's." },
         { id: "a_text_disputes", title: "Kept, but the description states a different size", why: "The product's own words give a different weight or volume than the value kept. By the agreed rule the description wins, so these count against the tool.", wrong: true },
+        { id: "a_unverified", title: "Kept, nothing to check it against", why: "No usable older field and no quantity in the description. The value is kept as entered; nothing in the file can confirm or deny it." },
       ],
     };
   }
-  const read = c.c_read || 0, blankOk = c.c_nothing_right || 0, reRead = blankOk + g.wrong;
+  if (g.group === "B") {
+    const unchallenged = g.products - g.wrong;
+    return {
+      taskTitle: "Group B · Changed by the tool",
+      task: <>
+        <p className="acc-lead">For these {n(g.products)} products the tool wrote into K, L or M itself. It converted the older size in I and J with the agreed table, for example <b>1 KG</b> to <b>1000 GM</b>. Or it read a size written in the description, completed the missing values of a half-filled row, or fixed a unit's spelling.</p>
+        {routeSentence(g)}
+        <p className="acc-lead">The question for this group: <b>was the change right?</b></p>
+      </>,
+      example: [{ label: "Column I · J", value: "1 KG" }, { label: "Column K · L", value: "1000 GM" }, { label: "Rule", value: "1 KG = 1000 GM, whole number", rule: true }],
+      segments: [{ key: "own", label: "The description states the new value", value: g.confirmed, cls: "j-done" }, { key: "rec", label: "Another record agrees", value: g.consistent, cls: "j-ask" }, { key: "none", label: "Correct by the table, no second source", value: g.unverified, cls: "j-blank" }, { key: "wrong", label: "The description states something else", value: g.wrong, cls: "j-wrong" }],
+      ways: [
+        { title: "Was any change contradicted?", value: pct(unchallenged, g.products), fraction: `${n(unchallenged)} of ${n(g.products)} changes`, primary: true, text: `Every change comes from the agreed table, from words written in the description, or from what the row already held. ${g.wrong ? `${n(g.wrong)} are contradicted by the product's own description and count against the tool.` : "None is contradicted by the product's own description."}` },
+        { title: "Can a second source in the file confirm the change?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} that could be checked · ${n(g.unverified)} left out`, text: `${n(g.confirmed)} have the new value written in their own description and ${n(g.consistent)} agree with another record. For ${n(g.unverified)} the older field is the only information the file holds.` },
+        { title: "Strictest: only changes with a second source count as proven", value: pct(g.right, g.products), fraction: `${n(g.right)} of ${n(g.products)}`, text: `The ${n(g.unverified)} changes with no second source are correct by the table, but nothing in the file traces them back, so this reading leaves them unproven.` },
+      ],
+      waysNote: `The first number asks whether anything in the file contradicts a change. The second asks whether something confirms it. The third is the second again, with the unconfirmed counted as unproven rather than left out.`,
+      exceptionsTitle: "The {n} changes worth a look",
+      exceptions: [
+        { id: "b_text_disagrees", title: "Changed, but the description states a different size", why: "The value came from the older field, but the product's own words give another size. By the agreed rule the description wins, so these count against the tool.", wrong: true },
+        { id: "b_read_wrong", title: "Read a value the text does not support", why: "The value read does not match what the description states. These count against the tool.", wrong: true },
+        { id: "b_read_unverified", title: "Read a value, not found again on a second reading", why: "A value was read from the description, but the rule-based second reading could not find it in the text." },
+        { id: "b_unverified", title: "Converted by the table, nothing to check it against", why: "The arithmetic is exact, but no description states a size and the category cannot tell a right value from a wrong one." },
+      ],
+    };
+  }
+  const disagree = sum(["c_flag_conflict", "c_flag_silent", "c_flag_split", "c_flag_text_supports", "c_flag_ounce", "c_flag_pack", "c_flag_conversion", "c_other"]);
+  const nothing = sum(["c_nothing_written", "c_blank_unit", "c_gap_review", "c_unusable"]);
+  const against = g.alarms + g.wrong;
   return {
-    taskTitle: "Group C · What the tool was asked to do",
+    taskTitle: "Group C · Raised for a person",
     task: <>
-      <p className="acc-lead">For these {n(g.products)} products every size column was empty: nothing in I and J, nothing in K, L and M. The only information is the six description fields, in English and Chinese.</p>
-      <p className="acc-lead">The task: read those words and, if a size is written there, quote it and write it into K and L in the standard units, for example <b>ORGANIC JUICE 500ML</b> becomes <b>500 ML</b>. If no size is written, leave the columns empty rather than guess. A number that describes a container, a grade or a year is never a size.</p>
+      <p className="acc-lead">For these {n(g.products)} products the tool wrote nothing and handed the row to a person. Either the sources disagree, a value is only suggested, nothing is written anywhere, or a value in Excel cannot be used. Every discrepancy lands here.</p>
+      {routeSentence(g)}
+      <p className="acc-lead">The question for this group: <b>was raising it right?</b> A raise is right when the data bears it out. It is wrong when the text shows Excel was right, or when a size is written that the tool did not use.</p>
     </>,
-    example: [{ label: "Description", value: "GREEN TEA / 綠茶" }, { label: "Column K · L", value: "left empty" }, { label: "Rule", value: "nothing written, nothing invented", rule: true }],
-    segments: [{ key: "read", label: "Read a size written in the text", value: read, cls: "j-done" }, { key: "blank", label: "Correctly left empty, nothing is written", value: blankOk, cls: "j-blank" }, { key: "ask", label: "Handed to a person", value: g.flags, cls: "j-ask" }, { key: "wrong", label: "Read wrongly or missed", value: g.wrong, cls: "j-wrong" }],
+    example: [{ label: "Column K · L · M", value: "500 GM × 1" }, { label: "Description", value: "OIL 900G" }, { label: "Raised", value: "two sources, two sizes: a person decides", rule: true }],
+    segments: [{ key: "disagree", label: "Sources disagree", value: disagree, cls: "j-ask" }, { key: "nothing", label: "Nothing to go on", value: nothing, cls: "j-blank" }, { key: "against", label: "Raised, not needed or missed", value: against, cls: "j-wrong" }],
     ways: [
-      { title: "Did the tool do its job on every product?", value: pct(read + blankOk + g.flags, g.products), fraction: `${n(read + blankOk + g.flags)} of ${n(g.products)}`, primary: true, text: `${n(blankOk)} products have no size written in any of their six description fields, so leaving them empty was the correct answer. ${n(g.flags)} were handed to a person. ${g.wrong ? `${n(g.wrong)} were read wrongly or missed.` : "None was read wrongly or missed."}` },
-      { title: "Does a second reading of the same text agree?", value: pct(blankOk + read, reRead + read), fraction: `${n(blankOk + read)} of ${n(reRead + read)} re-read`, text: `Every Group C description was read a second time by a separate, rule-based reader that knows the same units and count words. It found no size in ${n(blankOk)} of them, the same result the tool reached${read ? `, and the same size in ${n(read)} that the tool read` : ""}.` },
-      { title: "Sizes it actually read", value: read ? pct(read, read + g.wrong) : "none to read", fraction: read ? `${n(read)} of ${n(read + g.wrong)}` : "no size was written in any of these descriptions", text: read ? "Of the sizes the tool read from the text, this share is stated word for word in the description." : "On this workbook nothing was written, so there was nothing to read and nothing to get wrong. The tool's job here was to recognise that, and it did." },
+      { title: "Was raising it right?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} raised`, primary: true, text: `Every raised product is judged. ${against ? `${n(g.alarms)} were not needed and ${n(g.wrong)} left a written size unused; those count against the tool.` : "None was raised without need, and none left a written size unused."}` },
+      { title: "Raised because sources disagree", value: n(disagree), fraction: `of ${n(g.products)} raised`, text: "Excel, the older field and the description give different answers, or a count could mean the pack or its contents. The tool never picks a side on its own." },
+      { title: "Raised because there is nothing to go on", value: n(nothing), fraction: `of ${n(g.products)} raised`, text: "No size is written in any of the six description fields, the older unit is in no table, a missing value is written nowhere, or a value in Excel cannot be used. Leaving it empty is the right answer." },
     ],
-    waysNote: `Group C is judged on what the descriptions contain. When they contain no size, the correct result is an empty cell, and that is what the tool produced.`,
-    exceptionsTitle: "The {n} products the tool did not decide alone",
+    waysNote: "Group C is judged on its own data: whether each raise is borne out by what the file contains. Nothing here is compared with a test.",
+    exceptionsTitle: "The {n} raised products, by reason",
     exceptions: [
-      { id: "c_flag_pack", title: "A pack count was read and needs confirming", why: "The text states a count, such as a four-pack, but no size. A person confirms whether the count is the pack sold or what is inside it before it is used." },
-      { id: "c_missed", title: "Left empty, but a size is written", why: "A quantity is stated in the description that the reader did not use. These count against the tool.", wrong: true },
-      { id: "c_wrong_read", title: "Read a value the text does not support", why: "The value read does not match what the description states. These count against the tool.", wrong: true },
+      { id: "c_alarm", title: "Raised, but the text shows Excel was right", why: "A second reading quoted words from the description that state Excel's value. These reviews were not needed and count against the tool.", wrong: true },
+      { id: "c_missed", title: "Left blank, but a size is written", why: "A quantity is stated in the description that the reader did not use. These count against the tool.", wrong: true },
+      { id: "c_flag_conflict", title: "The description disagrees with Excel", why: "The product's own words state a different size or count, or the English and Chinese text disagree. The tool never picks a side on its own." },
+      { id: "c_flag_silent", title: "The older field and Excel disagree, nothing readable settles it", why: "Two records give different values and nothing in the product's words settles it. Only a person with the product can decide." },
+      { id: "c_flag_split", title: "Same total, different split", why: "The older size times a count in the description equals Excel's total. One pack or several pieces is a business choice." },
+      { id: "c_flag_text_supports", title: "The older field differs, the description supports Excel", why: "The description states what Excel has; the review is asked only because the older field disagrees. The answer is most likely Excel." },
+      { id: "c_flag_ounce", title: "The ounce could mean weight or volume", why: "An ounce of a solid is 28 grams, of a liquid 30 millilitres, and the category holds both." },
+      { id: "c_flag_pack", title: "A pack count needs confirming", why: "A count such as 12PCS can be the pack sold or what is inside it. A person confirms it before it is used." },
+      { id: "c_flag_conversion", title: "The converted value needs a person", why: "The older field was converted, but the description or the pack disagrees with it." },
+      { id: "c_nothing_written", title: "Nothing written to read", why: "No description states a size, and a rule-based second reading of the same six fields finds none either." },
+      { id: "c_blank_unit", title: "The older unit is in no table", why: "A unit such as ST has no agreed conversion. Blank is the right answer until one is agreed." },
+      { id: "c_gap_review", title: "Half-filled row, a missing value was not found", why: "What could be found was filled; the rest was only suggested because a second source disagrees, or it is written nowhere." },
+      { id: "c_unusable", title: "A value in Excel cannot be used", why: "Text where a number should be, or a unit that is in no table." },
+      { id: "c_other", title: "Raised for another checked reason", why: "A check found a reason for a person to look; the comment on the row names it." },
     ],
   };
 }

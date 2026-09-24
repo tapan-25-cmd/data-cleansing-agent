@@ -7,6 +7,7 @@ import {
   ComparisonRow,
   ComparisonValues,
   getPastNewComparison,
+  groupTitle,
   ReviewerCase,
   ReviewerVerdict,
   RunOutcome,
@@ -157,7 +158,7 @@ export function PastNewPage() {
         <input value={filters.search} onChange={event => update("search", event.target.value)} placeholder="Search item number or description" />
         <select value={filters.past_status} onChange={event => update("past_status", event.target.value)}><option value="">Past run: any result</option>{Object.entries(report.facets.past_status || {}).map(([value, count]) => <option key={value} value={value}>{report.status_labels[value] || value} ({count.toLocaleString()})</option>)}</select>
         <select value={filters.new_status} onChange={event => update("new_status", event.target.value)}><option value="">New run: any result</option>{Object.entries(report.facets.new_status || {}).map(([value, count]) => <option key={value} value={value}>{report.status_labels[value] || value} ({count.toLocaleString()})</option>)}</select>
-        <select value={filters.group} onChange={event => update("group", event.target.value)}><option value="">All groups</option>{Object.entries(report.facets.group || {}).map(([value, count]) => <option key={value} value={value}>Group {value} ({count.toLocaleString()})</option>)}</select>
+        <select value={filters.group} onChange={event => update("group", event.target.value)}><option value="">New run: any group</option>{Object.entries(report.facets.group || {}).map(([value, count]) => <option key={value} value={value}>{groupTitle(value)} ({count.toLocaleString()})</option>)}</select>
         <label className="toggle"><input type="checkbox" checked={!changedOnly} onChange={event => setChangedOnly(!event.target.checked)} /> Show all {report.summary.rows_compared.toLocaleString()} rows</label>
         <button className="secondary" onClick={() => { setFilters({ change: "", past_status: "", new_status: "", group: "", search: "" }); setChangedOnly(true); }}>Clear</button>
       </section>
@@ -166,7 +167,7 @@ export function PastNewPage() {
         <div className="ledger-meta"><strong>{report.total.toLocaleString()} rows in view</strong><span>Page {page} of {pageCount}</span></div>
         <div className="ledger-table-wrap"><table className="ledger-table compare-table"><thead><tr><th>Product</th><th>Past run said</th><th>New run says</th><th>What changed</th></tr></thead><tbody>
           {report.rows.map(row => <tr key={row.row_number} onClick={() => setSelected(row)} className={selected?.row_number === row.row_number ? "selected" : ""}>
-            <td><strong>{row.item_no}</strong><span>{row.product || row.product_local || "No description"}</span><small>Excel row {row.row_number} · Group {row.group_label}{row.reviewer ? " · reviewer case" : ""}</small></td>
+            <td><strong>{row.item_no}</strong><span>{row.product || row.product_local || "No description"}</span><small>Excel row {row.row_number} · {row.past_group === row.group ? `Group ${row.group_label}` : `Group ${row.past_group_label} → ${row.group_label}`}{row.reviewer ? " · reviewer case" : ""}</small></td>
             <td><Outcome run={row.past} /></td>
             <td><Outcome run={row.new} /></td>
             <td><span className={`status-badge ${row.change === "SAME" ? "tone-skipped" : tone(row.change)}`}>{row.change_label}</span><small>{row.explanation}</small></td>
@@ -181,7 +182,7 @@ export function PastNewPage() {
       <button className="detail-close" onClick={() => setSelected(null)}>×</button>
       <div className="detail-content">
         <p className="eyebrow">Row {selected.row_number}</p><h2>{selected.item_no}</h2>
-        <div className="detail-badges"><span className={`status-badge ${selected.change === "SAME" ? "tone-skipped" : tone(selected.change)}`}>{selected.change_label}</span><span className="result-badge">Group {selected.group_label}</span></div>
+        <div className="detail-badges"><span className={`status-badge ${selected.change === "SAME" ? "tone-skipped" : tone(selected.change)}`}>{selected.change_label}</span><span className="result-badge">{selected.past_group === selected.group ? groupTitle(selected.group) : `Group ${selected.past_group_label} → ${selected.group_label}`}</span><span className="result-badge">{selected.route_label}</span></div>
 
         <section className="review-explanation">
           <p className="eyebrow">What changed</p>

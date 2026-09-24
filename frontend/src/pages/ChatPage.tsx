@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { createExport, getItems, getJob, getPreview, getSummary, Job, JobItem, sendChatMessage, startProcessing, uploadWorkbook } from "../api/client";
+import { createExport, getItems, getJob, getPreview, getSummary, GROUP_NAMES, Job, JobItem, OutcomeGroup, sendChatMessage, startProcessing, uploadWorkbook } from "../api/client";
 
 type Message = { id: number; role: "user" | "assistant"; text: string; upload?: boolean };
 const starter = "Please do the unit measurement";
@@ -42,7 +42,7 @@ export function ChatPage() {
   ]);
   const [jobId, setJobId] = useState(() => localStorage.getItem("uom-current-job") || "");
   const [panelOpen, setPanelOpen] = useState(false);
-  const [group, setGroup] = useState("A");
+  const [group, setGroup] = useState<OutcomeGroup>("A");
   const [error, setError] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const nextMessage = useRef(2);
@@ -162,26 +162,25 @@ export function ChatPage() {
         {reviewReady && stats && <div className="message assistant result-message">
           <div className="avatar">DFI</div>
           <div className="bubble result-card">
-          <div className="result-heading"><div><p className="eyebrow">Processing complete</p><h2>Your workbook is ready</h2></div><div className="result-heading-actions"><button className="secondary" onClick={() => setPanelOpen(true)}>View A/B/C</button><Link className="secondary" to={`/jobs/${jobId}/results`}>View detailed results</Link><Link className="secondary" to={`/jobs/${jobId}/performance`}>Agent performance</Link></div></div>
-          <p className="agent-result-summary">I processed <strong>{display(stats.department_rows)}</strong> selected rows. <strong>{display(stats.purged)}</strong> purged rows were excluded, leaving <strong>{display(stats.live)}</strong> live rows: <strong>{display(stats.group_a)}</strong> validated as A, <strong>{display(stats.group_b)}</strong> handled through deterministic B rules, and <strong>{display(stats.group_c)}</strong> sent through C description inference.</p>
+          <div className="result-heading"><div><p className="eyebrow">Processing complete</p><h2>Your workbook is ready</h2></div><div className="result-heading-actions"><button className="secondary" onClick={() => setPanelOpen(true)}>View groups</button><Link className="secondary" to={`/jobs/${jobId}/results`}>View detailed results</Link><Link className="secondary" to={`/jobs/${jobId}/performance`}>Agent performance</Link></div></div>
+          <p className="agent-result-summary">I processed <strong>{display(stats.department_rows)}</strong> selected rows. <strong>{display(stats.purged)}</strong> purged rows were excluded, leaving <strong>{display(stats.live)}</strong> live rows. <strong>{display(stats.groups?.A)}</strong> needed no change (A), <strong>{display(stats.groups?.B)}</strong> were changed by the tool (B), and <strong>{display(stats.groups?.C)}</strong> were raised for a person (C).</p>
           <div className="stat-strip">
             <span><small>Selected rows</small><strong>{display(stats.department_rows)}</strong></span>
             <span className="stat-purged"><small>Purged</small><strong>{display(stats.purged)}</strong></span>
             <span><small>Live rows</small><strong>{display(stats.live)}</strong></span>
-            <span className="stat-a"><small>A · Validated</small><strong>{display(stats.group_a)}</strong></span>
-            <span className="stat-b"><small>B · Rule fixes</small><strong>{display(stats.group_b)}</strong></span>
-            <span className="stat-c"><small>C · Inferred</small><strong>{display(stats.group_c)}</strong></span>
+            <span className="stat-a"><small>A · {GROUP_NAMES.A}</small><strong>{display(stats.groups?.A)}</strong></span>
+            <span className="stat-b"><small>B · {GROUP_NAMES.B}</small><strong>{display(stats.groups?.B)}</strong></span>
+            <span className="stat-c"><small>C · {GROUP_NAMES.C}</small><strong>{display(stats.groups?.C)}</strong></span>
           </div>
           <p className="validation-note">Pack size: {display((stats.pack_deterministic_proposed || 0) + (stats.pack_agent_proposed || 0))} proposed · {display(stats.pack_conflict || 0)} conflicts · {display(stats.pack_agent_error || 0)} agent errors.</p>
-          {(stats.group_a_validation_warnings || 0) > 0 && <p className="validation-note">{display(stats.group_a_validation_warnings)} validated A rows include non-blocking legacy or description warnings.</p>}
           {(stats.discrepancies || 0) > 0 && <p className="validation-note"><strong>{display(stats.discrepancies)}</strong> rows have English and local-language text that disagree ({display(stats.discrepancy_bilingual_measurement_conflicts || 0)} on size, {display(stats.discrepancy_bilingual_count_conflicts || 0)} on pack count). They need human review; no value was chosen automatically.</p>}
           {(summary.data?.rule_readiness?.uncovered_affected_rows || 0) > 0 && <p className="validation-note mapping-note"><strong>{display(summary.data?.rule_readiness?.uncovered_affected_rows)}</strong> rows use units without confirmed mapping rules: {summary.data?.rule_readiness?.uncovered_source_uoms?.join(", ")}.</p>}
-          <div className="preview-table"><table><thead><tr><th>Item number</th><th>Group</th><th><span className="excel-column">K</span> Standardize Unit Size</th><th><span className="excel-column">L</span> Standardize UOM</th><th><span className="excel-column">M</span> Standardize Pack Size</th><th>Method</th></tr></thead><tbody>
-            {preview.data?.items.map(item => <tr key={item.row_number}><td>{item.item_no}</td><td><b className={`group-pill group-${item.group.toLowerCase()}`}>{item.group}</b></td><td>{fieldComparison(item.original.standard_size, item.field_proposals.standard_size)}</td><td>{fieldComparison(item.original.standard_uom, item.field_proposals.standard_uom)}</td><td>{fieldComparison(item.original.standard_pack_size, item.field_proposals.standard_pack_size)}</td><td>{display(item.method)}</td></tr>)}
+          <div className="preview-table"><table><thead><tr><th>Item number</th><th>Group</th><th><span className="excel-column">K</span> Standardize Unit Size</th><th><span className="excel-column">L</span> Standardize UOM</th><th><span className="excel-column">M</span> Standardize Pack Size</th><th>How</th></tr></thead><tbody>
+            {preview.data?.items.map(item => <tr key={item.row_number}><td>{item.item_no}</td><td><b className={`group-pill group-${item.group.toLowerCase()}`}>{item.group}</b></td><td>{fieldComparison(item.original.standard_size, item.field_proposals.standard_size)}</td><td>{fieldComparison(item.original.standard_uom, item.field_proposals.standard_uom)}</td><td>{fieldComparison(item.original.standard_pack_size, item.field_proposals.standard_pack_size)}</td><td>{display(item.how)}</td></tr>)}
           </tbody></table></div>
           {exporting && <div className="export-status"><div className="typing-loader" aria-hidden="true"><span /><span /><span /></div><div><strong className="shimmer-text">{stage}</strong><p>Updating only the standardized size, UOM, and pack-size fields. The rest of the workbook is preserved.</p><div className="shimmer-rail" /></div></div>}
           {exported ? <a className="primary download" href={`/api/jobs/${jobId}/download`}>Download cleansed workbook</a> : <button className="primary" disabled={exporting} onClick={() => exporter.mutate()}>{exporting ? "Generating workbook…" : "Generate and download workbook"}</button>}
-          <small className="policy-note">Review is optional. Pending A/B/C items do not block export.</small>
+          <small className="policy-note">Review is optional. Rows raised in Group C do not block the download.</small>
           </div>
         </div>}
         {error && <div className="alert error">{error}</div>}
@@ -194,17 +193,11 @@ export function ChatPage() {
       </form>
     </section>
     {panelOpen && reviewReady && <aside className="review-panel">
-      <div className="review-panel-head"><div><p className="eyebrow">Read-only results</p><h2>A/B/C review</h2></div><button onClick={() => setPanelOpen(false)}>×</button></div>
-      <p className="review-help">Use this panel to understand how rows were classified. No approval or editing is required.</p>
-      <div className="group-tabs">{[
-        { value: "A", label: "Validated" },
-        { value: "B", label: "Rules" },
-        { value: "C", label: "Inference" },
-        ...((stats?.validation_review || 0) > 0 ? [{ value: "VALIDATION_REVIEW", label: "Review" }] : []),
-        ...((stats?.data_shape_error || 0) > 0 ? [{ value: "DATA_SHAPE_ERROR", label: "Invalid" }] : []),
-      ].map(option => <button className={group === option.value ? "active" : ""} onClick={() => setGroup(option.value)} key={option.value}>{option.value.length === 1 ? option.value : "!"}<small>{option.label}</small></button>)}</div>
+      <div className="review-panel-head"><div><p className="eyebrow">Read-only results</p><h2>Groups</h2></div><button onClick={() => setPanelOpen(false)}>×</button></div>
+      <p className="review-help">Each row is in the group of its result. No approval or editing is required.</p>
+      <div className="group-tabs">{(["A", "B", "C"] as OutcomeGroup[]).map(value => <button className={group === value ? "active" : ""} onClick={() => setGroup(value)} key={value}>{value}<small>{GROUP_NAMES[value]}</small></button>)}</div>
       <div className="review-rows">{review.isLoading ? <p>Loading rows…</p> : review.data?.items.map((item: JobItem) => <article key={item.row_number}>
-        <div><b>{item.item_no}</b><span>Row {item.row_number}</span></div><p>{display(item.original.standard_size)} {display(item.original.standard_uom)} × {display(item.original.standard_pack_size)} <strong>→</strong> {display(item.field_proposals.standard_size)} {display(item.field_proposals.standard_uom)} × {display(item.field_proposals.standard_pack_size)}</p><small>{display(item.reason_code)} · {display(item.method)}</small>
+        <div><b>{item.item_no}</b><span>Row {item.row_number}</span></div><p>{display(item.original.standard_size)} {display(item.original.standard_uom)} × {display(item.original.standard_pack_size)} <strong>→</strong> {display(item.field_proposals.standard_size)} {display(item.field_proposals.standard_uom)} × {display(item.field_proposals.standard_pack_size)}</p><small>{display(item.status_label ?? item.status)} · {display(item.how)}</small>
         {item.pack_result && <small className="validation-summary">M · {display(item.pack_result.status)} · {display(item.field_provenance?.standard_pack_size?.method)}</small>}
         {item.validation && <small className="validation-summary">{item.validation.status} · {item.validation.issues.length} validation note{item.validation.issues.length === 1 ? "" : "s"}</small>}
       </article>)}</div>

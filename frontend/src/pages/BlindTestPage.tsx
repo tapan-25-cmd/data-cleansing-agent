@@ -25,7 +25,7 @@ export function BlindTestPage() {
 
   return <div className="results-page acc-page">
     <header className="results-header">
-      <div><p className="eyebrow">Accuracy · Blind test</p><h1>Tests where the right answer is known first</h1><p>For each group, the answer exists before the tool runs and is hidden from it. Nothing here changes the workbook.</p></div>
+      <div><p className="eyebrow">Accuracy · Blind test</p><h1>Tests where the right answer is known first</h1><p>Each part of the tool is tested on answers that exist before it runs and are hidden from it. Nothing here changes the workbook.</p></div>
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
     <JobTabs jobId={jobId} active="accuracy" />
@@ -34,9 +34,9 @@ export function BlindTestPage() {
 
     {d && <>
       <TestCard
-        title="Group B · Conversion test" cost="No AI calls · runs in seconds" doc={B} onRun={() => run.mutate("B")} onRows={() => { setOpen("B"); setPage(1); }}
+        title="The unit table · Conversion test" cost="No AI calls · runs in seconds" doc={B} onRun={() => run.mutate("B")} onRows={() => { setOpen("B"); setPage(1); }}
         hidden="The team's size, unit and pack size (K, L, M) of every complete product whose older field is in a different unit."
-        answer="The tool converts the older field with the unit table, as it does for Group B, and its result is compared with the team's value."
+        answer="The tool converts the older field with the unit table, as it does when K and L are empty, and its result is compared with the team's value."
         result={B?.status === "READY" ? <>
           <Big value={pct(num(sB.conversion_agree) + num(sB.conversion_whole_pack), num(sB.needed_conversion))} label={`${n(num(sB.conversion_agree) + num(sB.conversion_whole_pack))} of ${n(sB.needed_conversion)} conversions reproduce the team's value`} />
           <ul className="bt-facts">
@@ -51,9 +51,9 @@ export function BlindTestPage() {
         proves="The unit table and its rounding reproduce what the team entered, and exactly where they do not." limit="The team's values are the answer key, so a disagreement can be a data error as easily as a tool error; both values are shown." />
 
       <TestCard
-        title="Group A · Seeded-error test" cost="No AI calls · about two minutes" doc={A} onRun={() => run.mutate("A")} onRows={() => { setOpen("A"); setPage(1); }}
+        title="The checker · Seeded-error test" cost="No AI calls · about two minutes" doc={A} onRun={() => run.mutate("A")} onRows={() => { setOpen("A"); setPage(1); }}
         hidden="Nothing is hidden. Instead, complete products the tool had accepted are deliberately broken, one error at a time, in six realistic ways."
-        answer="Each broken copy goes through the Group A check. Caught means the tool refused to keep it and sent it to a person; noted means it kept the value with a remark; missed means it accepted it."
+        answer="Each broken copy goes through the check for filled-in values. Caught means the tool refused to keep it and raised it for a person; noted means it kept the value with a remark; missed means it accepted it."
         result={A?.status === "READY" ? <>
           <Big value={pct(num(sA.caught), num(sA.tested))} label={`${n(sA.caught)} of ${n(sA.tested)} seeded errors caught · ${n(sA.products)} products × up to 6 errors each`} />
           <table className="bt-table"><thead><tr><th>Kind of error</th><th>Tested</th><th>Caught</th><th>Noted only</th><th>Missed</th><th>Catch rate</th></tr></thead><tbody>
@@ -64,7 +64,7 @@ export function BlindTestPage() {
         proves="If a value were wrong in one of these ways, whether the checker would see it. This is what the accuracy page cannot show, because it only sees the errors that exist." limit="A rounding slip of one gram is meant to be allowed, so a low catch rate there is by design. The size-as-total error can only be caught when the older field or the text says otherwise." />
 
       <TestCard
-        title="Group C · Reading test" cost="One AI call per product" doc={C} onRun={() => run.mutate("C_SILENT")} onRows={() => { setOpen("C_SILENT"); setPage(1); }} runLabel="Run the silent-text half"
+        title="The reader · Reading test" cost="One AI call per product" doc={C} onRun={() => run.mutate("C_SILENT")} onRows={() => { setOpen("C_SILENT"); setPage(1); }} runLabel="Run the silent-text half"
         hidden="Two halves. Positive: products whose description states the size the team entered; K, L, M hidden, only the text shown. Negative: 200 products whose descriptions state no size at all."
         answer="Positive: the reader must find the team's size in the text. Negative: the reader must answer that nothing is written. Inventing a size is a hard fail."
         result={<>
@@ -73,13 +73,13 @@ export function BlindTestPage() {
             <div><small>Negative half · invents nothing</small>{C?.status === "READY" ? <Big value={pct(num(sC.correct_silence), num(sC.tested) - num(sC.failed))} label={`${n(sC.correct_silence)} of ${n(num(sC.tested) - num(sC.failed))} answered "nothing written" · ${n(sC.invented_size)} invented a size · ${n(sC.failed)} failed calls`} /> : <p className="bt-note">Not run yet.</p>}</div>
           </div>
         </>}
-        proves="The two halves of the Group C claim: it reads what is written, and writes nothing when nothing is written." limit="The positive answer key is the team's own entries and inherits their mistakes; every disagreement is listed with both values." />
+        proves="The two halves of the reader's claim: it reads what is written, and writes nothing when nothing is written." limit="The positive answer key is the team's own entries and inherits their mistakes; every disagreement is listed with both values." />
     </>}
 
     {open && <aside className="result-detail" role="dialog" aria-modal="true">
       <button className="detail-close" onClick={() => setOpen(null)}>×</button>
       <div className="detail-content">
-        <p className="eyebrow">Blind test · {open === "A" ? "Group A" : open === "B" ? "Group B" : "Group C"}</p><h2>{open === "A" ? "Errors not caught" : open === "B" ? "Where the table and the team differ" : "Sizes invented or calls failed"}</h2>
+        <p className="eyebrow">Blind test · {open === "A" ? "The checker" : open === "B" ? "The unit table" : "The reader"}</p><h2>{open === "A" ? "Errors not caught" : open === "B" ? "Where the table and the team differ" : "Sizes invented or calls failed"}</h2>
         <section className="detail-section">
           <div className="detail-section-heading"><h3>Products</h3><span>{rows.data ? `${n(rows.data.total)} · page ${rows.data.page} of ${Math.max(1, Math.ceil(rows.data.total / rows.data.page_size))}` : "…"}</span></div>
           <div className="detail-findings">{(rows.data?.rows || []).map((x, i) => <article key={i}>

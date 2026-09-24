@@ -1,16 +1,42 @@
+export type OutcomeGroup = "A" | "B" | "C" | "PURGED";
+export const GROUP_NAMES: Record<OutcomeGroup, string> = {
+  A: "No change", B: "Changed by the tool", C: "Raised for a person", PURGED: "Purged",
+};
+export const GROUP_STORIES: Record<OutcomeGroup, string> = {
+  A: "Nothing in K, L or M was written. The values were checked and kept, sometimes with a note.",
+  B: "The tool wrote K, L or M itself, whichever way it found the value.",
+  C: "Needs review, could not determine, or values that cannot be used. Nothing is written until a person decides.",
+  PURGED: "Purged products are skipped. Nothing is read or changed.",
+};
+export const GROUP_TONES: Record<OutcomeGroup, string> = {
+  A: "tone-no-change", B: "tone-auto-apply", C: "tone-review-required", PURGED: "tone-skipped",
+};
+// Which labels land in which group: the group follows from the label.
+export const GROUP_LABELS_OF: Record<OutcomeGroup, string[]> = {
+  A: ["Already correct", "Correct — with a note"],
+  B: ["Corrected automatically"],
+  C: ["Needs your review", "Could not determine", "Invalid values"],
+  PURGED: ["Skipped — purged"],
+};
+export const groupTitle = (g: string) => g === "PURGED" ? "Purged" : `Group ${g} · ${GROUP_NAMES[g as OutcomeGroup] ?? ""}`;
+
 export type Stats = {
   workbook_rows?: number;
   department_rows?: number;
   purged?: number;
   live?: number;
-  group_a?: number;
-  group_b?: number;
-  group_b1?: number;
-  group_b2?: number;
-  group_b3?: number;
-  group_c?: number;
+  // The outcome groups, decided from each row's final result.
+  groups?: Partial<Record<OutcomeGroup, number>>;
+  // The methods: how the tool worked on each row, chosen from its shape.
+  route_a?: number;
+  route_b?: number;
+  route_b1?: number;
+  route_b2?: number;
+  route_b3?: number;
+  route_c?: number;
+  route_incomplete?: number;
   validation_review?: number;
-  group_a_validation_warnings?: number;
+  route_a_validation_warnings?: number;
   data_shape_error?: number;
   discrepancies?: number;
   discrepancy_bilingual_measurement_conflicts?: number;
@@ -50,7 +76,12 @@ export type JobItem = {
   row_number: number;
   item_no: string;
   department: string;
-  group: string;
+  // The outcome group, derived on the server from the status.
+  group: OutcomeGroup;
+  // The method the tool used, and where each change came from.
+  route: string;
+  route_label: string;
+  how: string;
   context: Record<string, string | null>;
   original: Record<string, string | null>;
   field_proposals: Record<string, string | null>;
@@ -73,6 +104,7 @@ export type JobItem = {
   application_policy?: string;
   // The one status shown to users; derived on the server for rows, counts and filters.
   status: string;
+  status_label?: string;
   result_ledger_version?: string;
 };
 
@@ -192,7 +224,7 @@ export const getJob = (jobId: string) => request<Job>(`/api/jobs/${jobId}`);
 export const getSummary = (jobId: string) => request<{ stats: Stats; pending_review: number; rule_readiness: RuleReadiness }>(`/api/jobs/${jobId}/summary`);
 export const getItems = (
   jobId: string,
-  group: string,
+  group: OutcomeGroup,
   page = 1,
   pageSize = 50,
   reviewStatus?: string,
@@ -259,8 +291,12 @@ export type ReviewerVerdict = "ACHIEVED" | "KEPT_UNDER_REVIEW" | "SUGGESTED" | "
 export type ComparisonRow = {
   row_number: number;
   item_no: string;
-  group: string;
+  group: OutcomeGroup;
   group_label: string;
+  past_group: OutcomeGroup;
+  past_group_label: string;
+  route: string;
+  route_label: string;
   product: string;
   product_local: string;
   uploaded: ComparisonValues;
@@ -498,7 +534,8 @@ export type QuestionGroup = { id: string; title: string; rows: number; categorie
 export type OpenQuestions = { version: string; rows_total: number; answered: number; groups: QuestionGroup[] };
 export type QuestionOption = { label: string; values: ComparisonValues; text: string; source: string };
 export type QuestionRow = {
-  row_number: number; item_no: string; group: string; group_label: string; category: string; status: string; status_label: string;
+  row_number: number; item_no: string; group: OutcomeGroup; group_label: string; group_name: string; route: string; route_label: string;
+  category: string; status: string; status_label: string;
   descriptions: Array<{ field: string; label: string; value: string | null }>;
   product: string; product_local: string;
   legacy: { text: string; converted: string | null } | null;
@@ -558,15 +595,15 @@ export const getReasoningRow = (jobId: string, row: number) => request<{ status:
 export type AccuracyKind = "CONFIRMED" | "CONSISTENT" | "FLAG" | "ALARM" | "WRONG" | "UNVERIFIED";
 export type AccuracySet = { id: string; kind: AccuracyKind; kind_label: string; name: string; reason: string; products: number };
 export type AccuracyGroup = {
-  group: string; products: number; scored: number; right: number; wrong: number; confirmed: number; consistent: number;
+  group: OutcomeGroup; name: string; question: string; routes: Array<{ route: string; products: number }>; products: number; scored: number; right: number; wrong: number; confirmed: number; consistent: number;
   flags: number; alarms: number; unverified: number; coverage_percent: number | null; accuracy_percent: number | null; confirmed_percent: number | null; sets: AccuracySet[];
 };
 export type ReadingTestAnchor = { job_id: string; finished_at: string | null; prompt_version: string | null; score: { tested: number; agreed: number; no_answer: number; verdicts: Record<string, number> } | null } | null;
 export type AccuracyReport = { status: "BUILDING" } | { status: "FAILED"; error: string } | {
   status: "READY"; rebuilding?: boolean; version: string; built_at: string; reasoning_rows_used: number; reasoning_kept_rows_checked: number;
-  disputed_a_rows: number; kind_labels: Record<AccuracyKind, string>; groups: AccuracyGroup[]; reading_test: ReadingTestAnchor;
+  kind_labels: Record<AccuracyKind, string>; groups: AccuracyGroup[]; reading_test: ReadingTestAnchor;
 };
-export type AccuracySetRow = { row_number: number; item_no: string; group: string; product: string; product_local: string; legacy: string; status: string; status_label: string; values: ComparisonValues; suggestion: ComparisonValues | null; comment: string; witness: string };
+export type AccuracySetRow = { row_number: number; item_no: string; group: OutcomeGroup; route: string; product: string; product_local: string; legacy: string; status: string; status_label: string; values: ComparisonValues; suggestion: ComparisonValues | null; comment: string; witness: string };
 export const getAccuracy = (jobId: string) => request<AccuracyReport>(`/api/jobs/${jobId}/accuracy`);
 export const getAccuracySet = (jobId: string, setId: string, page: number) => request<{ set_id: string; rows: AccuracySetRow[]; total: number; page: number; page_size: number }>(`/api/jobs/${jobId}/accuracy/${setId}?page=${page}`);
 
@@ -584,6 +621,6 @@ export const getBlindTestRows = (jobId: string, kind: string, page: number) => r
 
 // --- Row shapes ----------------------------------------------------------------
 export type ShapeField = { key: string; name: string; column: string; example: string; story: string };
-export type ShapeRow = { has: Record<string, boolean>; group: "A" | "B" | "C" | "INVALID"; outcome: string; detail: string };
-export type Shapes = { fields: ShapeField[]; groups: Record<string, { name: string; story: string }>; rows: ShapeRow[] };
+export type ShapeRow = { has: Record<string, boolean>; route: string; route_name: string; groups: OutcomeGroup[]; outcome: string; detail: string };
+export type Shapes = { fields: ShapeField[]; groups: Record<OutcomeGroup, { name: string; story: string }>; routes: Record<string, { name: string; story: string }>; rows: ShapeRow[] };
 export const getShapes = () => request<Shapes>("/api/rules/shapes");

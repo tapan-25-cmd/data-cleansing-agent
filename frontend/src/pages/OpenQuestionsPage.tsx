@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { answerOpenQuestion, ComparisonValues, getOpenQuestionRows, getOpenQuestions, getReasoningSummary, QuestionCategory, QuestionRow } from "../api/client";
+import { answerOpenQuestion, ComparisonValues, getOpenQuestionRows, getOpenQuestions, getReasoningSummary, groupTitle, OutcomeGroup, QuestionCategory, QuestionRow } from "../api/client";
 import { JobTabs } from "./JobTabs";
 import { ReasoningSection } from "./ReasoningSection";
 
@@ -92,14 +92,14 @@ export function OpenQuestionsPage() {
       <section className="result-filters" aria-label="Row filters">
         <input value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search item number or description" />
         <select value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}><option value="">Any result</option>{Object.entries(current.statuses).map(([s, n]) => <option key={s} value={s}>{s.replaceAll("_", " ").toLowerCase()} ({n})</option>)}</select>
-        <select value={filters.group} onChange={e => setFilters(f => ({ ...f, group: e.target.value }))}><option value="">All groups</option>{["A", "B", "C", "VALIDATION_REVIEW"].map(g => <option key={g} value={g}>Group {g === "VALIDATION_REVIEW" ? "A (disputed)" : g}</option>)}</select>
+        <select value={filters.group} onChange={e => setFilters(f => ({ ...f, group: e.target.value }))}><option value="">All groups</option>{(["A", "B", "C"] as OutcomeGroup[]).map(g => <option key={g} value={g}>{groupTitle(g)}</option>)}</select>
         <button className="secondary" onClick={() => setFilters({ search: "", group: "", status: "" })}>Clear</button>
       </section>
       <section className="ledger-shell">
         <div className="ledger-meta"><strong>{(rows.data?.total || 0).toLocaleString()} rows</strong><span>Page {page} of {pageCount}</span></div>
         <div className="ledger-table-wrap"><table className="ledger-table question-rows"><thead><tr><th>Product</th><th>Descriptions</th><th>Legacy (I/J)</th><th>Excel (K/L/M)</th><th>Suggested</th><th>What the engine found</th></tr></thead><tbody>
           {(rows.data?.rows || []).map(row => <tr key={row.row_number} onClick={() => setSelected(row)} className={selected?.row_number === row.row_number ? "selected" : ""}>
-            <td><strong>{row.item_no}</strong><small>Excel row {row.row_number} · Group {row.group_label}</small><span className={`status-badge ${tone(row.status)}`}>{row.status_label}</span></td>
+            <td><strong>{row.item_no}</strong><small>Excel row {row.row_number} · Group {row.group_label} · {row.route_label}</small><span className={`status-badge ${tone(row.status)}`}>{row.status_label}</span></td>
             <td className="descriptions"><span>{row.product || "—"}</span><span>{row.product_local || "—"}</span></td>
             <td><strong>{row.legacy?.text || "—"}</strong>{row.legacy?.converted && row.legacy.converted !== row.legacy.text && <small>= {row.legacy.converted}</small>}</td>
             <td><strong>{values(row.excel)}</strong><small>{total(row.excel)}</small></td>
@@ -116,7 +116,7 @@ export function OpenQuestionsPage() {
       <button className="detail-close" onClick={() => setSelected(null)}>×</button>
       <div className="detail-content">
         <p className="eyebrow">Row {selected.row_number}</p><h2>{selected.item_no}</h2>
-        <div className="detail-badges"><span className={`status-badge ${tone(selected.status)}`}>{selected.status_label}</span><span className="result-badge">Group {selected.group_label}</span>{current && <span className="result-badge">{current.name}</span>}</div>
+        <div className="detail-badges"><span className={`status-badge ${tone(selected.status)}`}>{selected.status_label}</span><span className="result-badge">{groupTitle(selected.group)}</span><span className="result-badge">{selected.route_label}</span>{current && <span className="result-badge">{current.name}</span>}</div>
 
         <section className="review-explanation">
           <p className="eyebrow">What the engine found</p>

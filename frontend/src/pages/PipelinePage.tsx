@@ -1,20 +1,23 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { getJob, getReasoningSummary, getResultFacets, getRulesGuide, getSummary, RulesGuide } from "../api/client";
+import { getJob, getReasoningSummary, getResultFacets, getRulesGuide, getSummary, GROUP_NAMES, GROUP_TONES, OutcomeGroup, RulesGuide } from "../api/client";
 import { JobTabs } from "./JobTabs";
 
 type Node = RulesGuide["pipeline"]["nodes"][number];
 
-// Where each step sits on the board: [column, row]. Columns 1-3 are the three lanes.
-const positions: Record<string, [number, number]> = {
-  upload: [2, 1], select: [2, 2], read: [2, 3], purge: [2, 4], lane: [2, 5],
+// Where each step sits on the board: [column, row, columns spanned]. Columns 1-4 are the
+// four methods; the shared steps sit in the middle two.
+const positions: Record<string, [number, number, number?]> = {
+  upload: [2, 1, 2], select: [2, 2, 2], read: [2, 3, 2], purge: [2, 4, 2], lane: [2, 5, 2],
   lane_a: [1, 6], a_legacy: [1, 7], a_text: [1, 8],
   lane_b: [2, 6], b_convert: [2, 7], b_guards: [2, 8],
   lane_c: [3, 6], c_ai: [3, 7], c_guards: [3, 8],
-  ledger: [2, 9], reason: [2, 10], review: [1, 11], export: [2, 12], measure: [3, 11],
+  lane_incomplete: [4, 6],
+  ledger: [2, 9, 2], sort: [2, 10, 2], reason: [1, 11], review: [1, 12], export: [2, 12, 2], measure: [4, 11],
 };
 const ROWS = 12;
+const GROUP_ORDER: OutcomeGroup[] = ["A", "B", "C", "PURGED"];
 
 function toneFor(status: string) { return `tone-${status.toLowerCase().replaceAll("_", "-")}`; }
 
@@ -35,6 +38,7 @@ export function PipelinePage() {
     ai_calls: (job.data as { ai_usage?: { calls?: number } } | undefined)?.ai_usage?.calls,
     ...Object.fromEntries(Object.entries(facets.data?.facets.status || {}).map(([k, v]) => [`status:${k}`, v])),
     reasoning_rows: reasoning.data?.status === "READY" ? reasoning.data.summary.rows : undefined,
+    groups: summary.data?.stats.groups ? Object.values(summary.data.stats.groups).reduce((n, v) => n + (v || 0), 0) : undefined,
   };
 
   useLayoutEffect(() => {
@@ -98,23 +102,24 @@ export function PipelinePage() {
         <span className="pipe-legend start">Start and end</span>
         <span className="pipe-legend process">Processing step</span>
         <span className="pipe-legend decision">Decision</span>
-        <span className="pipe-legend lane">Lane</span>
+        <span className="pipe-legend lane">Method</span>
         <span className="pipe-legend side">Alongside</span>
       </div>
       <section className="pipeline-shell">
-        <div className="lane-heads"><span>Lane A · values complete</span><span>Lane B · legacy only</span><span>Lane C · nothing usable</span></div>
+        <div className="lane-heads"><span>All three filled</span><span>Old size only</span><span>Nothing usable</span><span>Half-filled</span></div>
         <div className="pipeline-board" ref={board} style={{ gridTemplateRows: `repeat(${ROWS}, auto)` }}>
           <svg className="pipeline-lines" aria-hidden="true">
             <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#8fa5a0" /></marker></defs>
             {lines.map((l, i) => <g key={i}><path d={l.d} fill="none" stroke="#9fb3ae" strokeWidth="1.6" markerEnd="url(#arrow)" />{l.label && <text x={l.x} y={l.y} textAnchor="middle">{l.label}</text>}</g>)}
           </svg>
           {pipeline.nodes.map(node => {
-            const [col, row] = positions[node.id] || [2, ROWS];
+            const [col, row, span = 1] = positions[node.id] || [2, ROWS];
             const count = node.count ? counts[node.count] : undefined;
-            return <button key={node.id} data-node={node.id} className={`pipe-node kind-${node.kind} ${selected?.id === node.id ? "selected" : ""}`} style={{ gridColumn: col, gridRow: row }} onClick={() => setSelected(node)}>
+            return <button key={node.id} data-node={node.id} className={`pipe-node kind-${node.kind} ${selected?.id === node.id ? "selected" : ""}`} style={{ gridColumn: `${col} / span ${span}`, gridRow: row }} onClick={() => setSelected(node)}>
               <strong>{node.title}</strong>
               <span>{node.summary}</span>
               {count !== undefined && <b>{count.toLocaleString()} <small>{node.count_label}</small></b>}
+              {node.id === "sort" && summary.data?.stats.groups && <div className="pipe-labels">{GROUP_ORDER.map(g => <em key={g} className={`status-badge ${GROUP_TONES[g]}`}>{g === "PURGED" ? "Purged" : `${g} · ${GROUP_NAMES[g]}`} <b>{(summary.data!.stats.groups![g] || 0).toLocaleString()}</b></em>)}</div>}
               {node.id === "ledger" && facets.data && <div className="pipe-labels">{pipeline.labels.map(l => <em key={l.status} className={`status-badge ${toneFor(l.status)}`}>{l.label} <b>{(facets.data!.facets.status[l.status] || 0).toLocaleString()}</b></em>)}</div>}
             </button>;
           })}
@@ -145,7 +150,10 @@ export function PipelinePage() {
 function RuleStep({ text }: { text: string }) {
   const [condition, result] = text.split("→");
   const label = (result || "").trim();
-  const tone = label.startsWith("Needs") ? "tone-review-required" : label.startsWith("Already") ? "tone-no-change" : "tone-observation-only";
+  const tone = label.startsWith("Needs") || label.startsWith("Group C") ? "tone-review-required"
+    : label.startsWith("Already") || label.startsWith("Group A") ? "tone-no-change"
+    : label.startsWith("Corrected") || label.startsWith("Group B") ? "tone-auto-apply"
+    : label.startsWith("Purged") ? "tone-skipped" : "tone-observation-only";
   const [head, ...rest] = label.split(";");
   return <li><span>{condition.trim()}</span><em><b className={`status-badge ${tone}`}>{head.replace(/\s*\(.*\)$/, "").trim()}</b>{(rest.join(";") || (head.match(/\((.*)\)/)?.[1] ?? "")).trim()}</em></li>;
 }

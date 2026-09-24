@@ -8,7 +8,10 @@ import {
   getResultFacets,
   getResultItem,
   getResults,
+  GROUP_NAMES,
+  groupTitle,
   JobItem,
+  OutcomeGroup,
 } from "../api/client";
 
 const fieldLabels: Record<string, string> = {
@@ -31,7 +34,7 @@ const statusLabels: Record<string, { label: string; description: string }> = {
   OBSERVATION_ONLY: { label: "Correct, with a note", description: "Left unchanged. A small difference was recorded for your information." },
   REVIEW_REQUIRED: { label: "Needs your review", description: "Sources disagree, so a person decides. Excel is unchanged until then." },
   UNRESOLVED: { label: "Could not determine", description: "Not enough information to work out a value. Left blank, never guessed." },
-  INVALID: { label: "Invalid row — incomplete data", description: "Some of the three values are present but not all, so the row can be neither checked nor filled in." },
+  INVALID: { label: "Invalid values", description: "A value in the row cannot be used, such as text where a number should be, so it can be neither checked nor filled in." },
   SKIPPED: { label: "Skipped — purged", description: "A purged product with no details. It was not processed and is unchanged." },
 };
 
@@ -43,6 +46,16 @@ function statusLabel(value?: string) {
   return statusLabels[value || "NO_CHANGE"]?.label || display(value).replaceAll("_", " ");
 }
 
+// The methods, as the result facets count them. Checking existing values includes the
+// rows the checker raised.
+const ROUTE_OPTIONS: Array<{ value: string; label: string; routes: string[] }> = [
+  { value: "A", label: "Checked existing values", routes: ["A", "VALIDATION_REVIEW"] },
+  { value: "B", label: "Converted from the old size", routes: ["B"] },
+  { value: "C", label: "Read from the description", routes: ["C"] },
+  { value: "INCOMPLETE", label: "Half-filled row", routes: ["INCOMPLETE"] },
+  { value: "DATA_SHAPE_ERROR", label: "Values could not be used", routes: ["DATA_SHAPE_ERROR"] },
+];
+
 const descriptionConflictCodes = ["BILINGUAL_DESCRIPTION_CONFLICT", "PACK_COUNT_CONFLICT"];
 
 export function ResultsPage() {
@@ -53,6 +66,7 @@ export function ResultsPage() {
   const [filters, setFilters] = useState({
     search: "",
     group: "",
+    route: "",
     status: "",
     finding_category: "",
     finding_severity: "",
@@ -122,11 +136,12 @@ export function ResultsPage() {
       </section>
       <section className="result-filters" aria-label="Result filters">
         <input value={filters.search} onChange={event => updateFilter("search", event.target.value)} placeholder="Search item or description" />
-        <select value={filters.group} onChange={event => updateFilter("group", event.target.value)}><option value="">All groups</option>{Object.entries(facets.data?.facets.group || {}).map(([value, count]) => <option key={value} value={value}>{value} ({count})</option>)}</select>
+        <select value={filters.group} onChange={event => updateFilter("group", event.target.value)}><option value="">All groups</option>{(["A", "B", "C", "PURGED"] as OutcomeGroup[]).filter(value => (facets.data?.facets.group?.[value] || 0) > 0).map(value => <option key={value} value={value}>{groupTitle(value)} ({facets.data?.facets.group?.[value]})</option>)}</select>
+        <select value={filters.route} onChange={event => updateFilter("route", event.target.value)}><option value="">All methods</option>{ROUTE_OPTIONS.map(option => ({ ...option, count: option.routes.reduce((n, route) => n + (facets.data?.facets.route?.[route] || 0), 0) })).filter(option => option.count > 0).map(option => <option key={option.value} value={option.value}>{option.label} ({option.count})</option>)}</select>
         <select value={filters.finding_category} onChange={event => updateFilter("finding_category", event.target.value)}><option value="">All issue categories</option>{Object.entries(facets.data?.facets.finding_category || {}).map(([value, count]) => <option key={value} value={value}>{value.replaceAll("_", " ")} ({count})</option>)}</select>
         <select value={filters.finding_severity} onChange={event => updateFilter("finding_severity", event.target.value)}><option value="">All severities</option>{Object.entries(facets.data?.facets.finding_severity || {}).map(([value, count]) => <option key={value} value={value}>{value} ({count})</option>)}</select>
         <select value={filters.changed_field} onChange={event => updateFilter("changed_field", event.target.value)}><option value="">All changed fields</option><option value="standard_size">K · Unit size</option><option value="standard_uom">L · UOM</option><option value="standard_pack_size">M · Pack size</option></select>
-        <button className="secondary" onClick={() => setFilters({ search: "", group: "", status: "", finding_category: "", finding_severity: "", review_status: "", changed_field: "" })}>Clear</button>
+        <button className="secondary" onClick={() => setFilters({ search: "", group: "", route: "", status: "", finding_category: "", finding_severity: "", review_status: "", changed_field: "" })}>Clear</button>
       </section>
 
       <section className="ledger-shell">
@@ -137,8 +152,8 @@ export function ResultsPage() {
             {!results.isLoading && !results.data?.items.length && <tr><td colSpan={8}>No rows match these filters.</td></tr>}
             {results.data?.items.map(item => <tr key={item.row_number} onClick={() => setSelectedRow(item.row_number)} className={selectedRow === item.row_number ? "selected" : ""}>
               <td><strong>{item.item_no}</strong><small>Row {item.row_number}</small></td>
-              <td><span className={`group-pill group-${item.group.toLowerCase()}`}>{item.group.length === 1 ? item.group : "!"}</span></td>
-              <td><span className={`status-badge ${toneClass(item.status)}`}>{statusLabel(item.status)}</span></td>
+              <td><span className={`group-pill group-${item.group.toLowerCase()}`} title={GROUP_NAMES[item.group]}>{item.group === "PURGED" ? "P" : item.group}</span></td>
+              <td><span className={`status-badge ${toneClass(item.status)}`}>{statusLabel(item.status)}</span><small>{item.how}</small></td>
               {(["standard_size", "standard_uom", "standard_pack_size"] as const).map(field => {
                 const change = item.changes?.find(row => row.field === field);
                 return <td key={field}><span className="ledger-value">{display(change?.final ?? item.original[field])}</span>{change?.proposed != null && <small>{display(change.original)} → {display(change.proposed)}</small>}</td>;
@@ -177,7 +192,7 @@ function Detail({ jobId, item, onDecision, pending }: {
   const visibleFindings = (item.findings || []).filter((finding, index, rows) => rows.findIndex(candidate =>
     candidate.code === finding.code && JSON.stringify(candidate.evidence || []) === JSON.stringify(finding.evidence || [])
   ) === index);
-  const noAgentProposal = item.group === "C" && !item.field_proposals.standard_size && !item.field_proposals.standard_uom;
+  const noAgentProposal = item.route === "C" && !item.field_proposals.standard_size && !item.field_proposals.standard_uom;
   const sourceFields = [
     ["Brand (English)", item.context.item_brand_eng],
     ["Brand (local language)", item.context.item_brand_local_lang],
@@ -199,7 +214,7 @@ function Detail({ jobId, item, onDecision, pending }: {
   const reviewOpen = policy === "REVIEW_REQUIRED" && !["APPROVED", "REJECTED", "OVERRIDDEN"].includes(item.review.overall_status);
   return <div className="detail-content">
     <p className="eyebrow">Row {item.row_number}</p><h2>{item.item_no}</h2>
-    <div className="detail-badges"><span className={`status-badge ${toneClass(policy)}`}>{statusLabel(policy)}</span><span className="result-badge">Group {item.group}</span></div>
+    <div className="detail-badges"><span className={`status-badge ${toneClass(policy)}`}>{statusLabel(policy)}</span><span className="result-badge">{groupTitle(item.group)}</span><span className="result-badge">{item.how}</span></div>
     {!hasReviewExplanation && !noAgentProposal && <p className="status-explanation">{statusLabels[policy]?.description}</p>}
     <ReviewExplanation item={item} />
     {noAgentProposal && <section className="agent-abstention compact"><strong>No reliable measurement found</strong><p>The agent checked all permitted descriptions and safely left K/L/M blank instead of guessing.</p><span>Safe abstention · {display(item.reason_code).replaceAll("_", " ").toLowerCase()}</span></section>}
