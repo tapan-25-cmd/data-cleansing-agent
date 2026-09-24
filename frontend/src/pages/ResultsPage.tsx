@@ -31,6 +31,7 @@ const statusLabels: Record<string, { label: string; description: string }> = {
   OBSERVATION_ONLY: { label: "Correct, with a note", description: "Left unchanged. A small difference was recorded for your information." },
   REVIEW_REQUIRED: { label: "Needs your review", description: "Sources disagree, so a person decides. Excel is unchanged until then." },
   UNRESOLVED: { label: "Could not determine", description: "Not enough information to work out a value. Left blank, never guessed." },
+  INVALID: { label: "Invalid row — incomplete data", description: "Some of the three values are present but not all, so the row can be neither checked nor filled in." },
   SKIPPED: { label: "Skipped — purged", description: "A purged product with no details. It was not processed and is unchanged." },
 };
 

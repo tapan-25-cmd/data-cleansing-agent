@@ -679,3 +679,4 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
 .bt-halves .status-badge { text-decoration: none; width: fit-content; }
 .bt-footer { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; padding: 12px 22px 16px; border-top: 1px solid #e2e9e6; color: #5f7580; font-size: 12px; line-height: 1.5; }
 @media (max-width: 1050px) { .bt-grid, .bt-halves, .bt-footer { grid-template-columns: 1fr; } }
+.tone-invalid { --tone: #c2571d; --tone-soft: #fbe9df; --tone-ink: #6e2f0c; }
