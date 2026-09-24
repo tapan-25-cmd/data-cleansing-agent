@@ -581,3 +581,9 @@ export type BlindTests = {
 export const getBlindTests = (jobId: string) => request<BlindTests>(`/api/jobs/${jobId}/blind-test`);
 export const runBlindTest = (jobId: string, kind: string) => request<{ status: string }>(`/api/jobs/${jobId}/blind-test/${kind}/run`, { method: "POST" });
 export const getBlindTestRows = (jobId: string, kind: string, page: number) => request<{ rows: Array<Record<string, unknown>>; total: number; page: number; page_size: number }>(`/api/jobs/${jobId}/blind-test/${kind}/rows?page=${page}`);
+
+// --- Row shapes ----------------------------------------------------------------
+export type ShapeField = { key: string; name: string; column: string; example: string; story: string };
+export type ShapeRow = { has: Record<string, boolean>; group: "A" | "B" | "C" | "INVALID"; outcome: string; detail: string };
+export type Shapes = { fields: ShapeField[]; groups: Record<string, { name: string; story: string; kid: string }>; rows: ShapeRow[] };
+export const getShapes = () => request<Shapes>("/api/rules/shapes");

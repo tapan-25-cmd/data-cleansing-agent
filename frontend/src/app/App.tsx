@@ -8,6 +8,7 @@ import { RulesPage } from "../pages/RulesPage";
 import { PipelinePage } from "../pages/PipelinePage";
 import { AccuracyPage } from "../pages/AccuracyPage";
 import { BlindTestPage } from "../pages/BlindTestPage";
+import { GroupsPage } from "../pages/GroupsPage";
 
 export function App() {
   return <div className="app-shell">
@@ -16,6 +17,7 @@ export function App() {
       <p className="eyebrow">Release 1 · UoM</p>
       <nav>
         <NavLink to="/">Agent chat</NavLink>
+        <NavLink to="/groups">Groups</NavLink>
         <NavLink to="/rules">Rules</NavLink>
         <NavLink to="/pipeline">Pipeline</NavLink>
       </nav>
@@ -33,6 +35,8 @@ export function App() {
         <Route path="/jobs/:jobId/pipeline" element={<PipelinePage />} />
         <Route path="/jobs/:jobId/accuracy" element={<AccuracyPage />} />
         <Route path="/jobs/:jobId/blind-test" element={<BlindTestPage />} />
+        <Route path="/jobs/:jobId/groups" element={<GroupsPage />} />
+        <Route path="/groups" element={<GroupsPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
