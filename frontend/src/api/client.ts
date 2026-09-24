@@ -585,5 +585,5 @@ export const getBlindTestRows = (jobId: string, kind: string, page: number) => r
 // --- Row shapes ----------------------------------------------------------------
 export type ShapeField = { key: string; name: string; column: string; example: string; story: string };
 export type ShapeRow = { has: Record<string, boolean>; group: "A" | "B" | "C" | "INVALID"; outcome: string; detail: string };
-export type Shapes = { fields: ShapeField[]; groups: Record<string, { name: string; story: string; kid: string }>; rows: ShapeRow[] };
+export type Shapes = { fields: ShapeField[]; groups: Record<string, { name: string; story: string }>; rows: ShapeRow[] };
 export const getShapes = () => request<Shapes>("/api/rules/shapes");

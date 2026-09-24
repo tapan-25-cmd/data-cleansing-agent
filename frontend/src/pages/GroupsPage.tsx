@@ -34,7 +34,7 @@ export function GroupsPage() {
       <section className="ledger-shell acc-card">
         <div className="ledger-meta"><strong>The groups</strong><span>one line each</span></div>
         <div className="gp-groups">
-          {order.map(g => <article key={g} className="gp-group"><span className={`status-badge ${groupTone[g]}`}>{d.groups[g].name}</span><p>{d.groups[g].story}</p><small>{d.groups[g].kid}</small></article>)}
+          {order.map(g => <article key={g} className="gp-group"><span className={`status-badge ${groupTone[g]}`}>{d.groups[g].name}</span><p>{d.groups[g].story}</p></article>)}
         </div>
       </section>
 
