@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { JobTabs } from "./JobTabs";
+import { ReasoningTrialBlock } from "./ReasoningTrialBlock";
 import { getAgentEvaluations, getAiReadingTest, getLatestEvaluation, runAgentEvaluation, getQuality, getVerificationSample, ResultAccuracyRow, startAiReadingTest, verifyItem } from "../api/client";
 
 const verdictBadge: Record<string, string> = {
@@ -93,10 +95,7 @@ export function PerformancePage() {
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
 
-    <div className="results-tabs">
-      <Link to={`/jobs/${jobId}/results`}>Results ledger</Link>
-      <button className="active">Agent performance</button>
-    </div>
+    <JobTabs jobId={jobId} active="performance" />
 
     {quality.isLoading && <p className="muted">Measuring the agent on your workbook…</p>}
     {quality.isError && <div className="alert error">{quality.error.message}</div>}
@@ -267,7 +266,12 @@ export function PerformancePage() {
       </section>
 
       <section className="performance-section">
-        <div className="section-heading"><div><p className="eyebrow">7 · Your workbook</p><h2>What the agent did with every product</h2><p>This is workload, not accuracy: it shows where each product ended up.</p></div></div>
+        <div className="section-heading"><div><p className="eyebrow">7 · AI reasoning trial</p><h2>What a reasoning pass would do with the rows still open</h2><p>A second AI task reads every source for the rows the rules could not close and answers like a reviewer: which source is right, what it would set, and why. It is a trial: its answers are shown in every row drawer and change nothing. The number that must stay at zero is <strong>wrong and confident</strong>.</p></div><Link to={`/jobs/${jobId}/rules?section=reasoning`} className="secondary">How it works →</Link></div>
+        <ReasoningTrialBlock jobId={jobId} />
+      </section>
+
+      <section className="performance-section">
+        <div className="section-heading"><div><p className="eyebrow">8 · Your workbook</p><h2>What the agent did with every product</h2><p>This is workload, not accuracy: it shows where each product ended up.</p></div></div>
         <div className="performance-table-wrap"><table className="performance-table">
           <thead><tr><th>Outcome</th><th className="numeric">Products</th><th className="numeric">Share of live products</th></tr></thead>
           <tbody>{report.workload.map(row => <tr key={row.key}><td>{row.outcome}</td><td className="numeric">{number(row.products)}</td><td className="numeric">{percent(row.share_percent)}</td></tr>)}</tbody>

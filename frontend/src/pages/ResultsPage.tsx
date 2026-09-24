@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
+import { JobTabs } from "./JobTabs";
+import { ReasoningSection } from "./ReasoningSection";
 import {
   decideItem,
   getResultFacets,
@@ -109,10 +111,7 @@ export function ResultsPage() {
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
 
-    <div className="results-tabs">
-      <button className="active">Results ledger</button>
-      <Link to={`/jobs/${jobId}/performance`}>Agent performance</Link>
-    </div>
+    <JobTabs jobId={jobId} active="results" />
 
     <>
       <section className="outcome-overview" aria-label="Filter rows by status">
@@ -154,12 +153,13 @@ export function ResultsPage() {
 
     {selectedRow !== null && <aside className="result-detail">
       <button className="detail-close" onClick={() => setSelectedRow(null)}>×</button>
-      {detail.isLoading ? <p>Loading details…</p> : selected && <Detail item={selected} onDecision={(action, values, comment) => decision.mutate({ row: selected.row_number, action, values, comment })} pending={decision.isPending} />}
+      {detail.isLoading ? <p>Loading details…</p> : selected && <Detail jobId={jobId} item={selected} onDecision={(action, values, comment) => decision.mutate({ row: selected.row_number, action, values, comment })} pending={decision.isPending} />}
     </aside>}
   </div>;
 }
 
-function Detail({ item, onDecision, pending }: {
+function Detail({ jobId, item, onDecision, pending }: {
+  jobId: string;
   item: JobItem;
   onDecision: (action: "APPROVE" | "REJECT" | "OVERRIDE", values?: Record<string, string>, comment?: string) => void;
   pending: boolean;
@@ -190,6 +190,8 @@ function Detail({ item, onDecision, pending }: {
   const hasReviewExplanation = (item.findings || []).some(finding => [
     "LEGACY_UOM_MISMATCH",
     "SIGNIFICANT_LEGACY_SIZE_MISMATCH",
+    "LINKED_SIZE_AND_PACK_SUGGESTION",
+    "DESCRIPTION_PACK_COUNT_DIFFERS",
     "PACKAGING_HIERARCHY_AMBIGUOUS",
     ...descriptionConflictCodes,
   ].includes(finding.code));
@@ -211,6 +213,7 @@ function Detail({ item, onDecision, pending }: {
       <div className="source-evidence-table">{sourceFields.map(([label, value]) => <div key={String(label)}><strong>{label}</strong><span className={!value ? "source-missing" : ""}>{value ? display(value) : "No value provided"}</span><small className={value ? "source-checked" : "source-empty"}>{value ? "Checked" : "Missing"}</small></div>)}</div>
     </section>
 
+    <ReasoningSection jobId={jobId} row={item.row_number} />
     <section className="detail-section">
       <div className="detail-section-heading"><h3>Findings and evidence</h3><span>{visibleFindings.length} finding{visibleFindings.length === 1 ? "" : "s"}</span></div>
       <div className="detail-findings">{visibleFindings.length ? visibleFindings.map(finding => <article key={`${finding.code}-${finding.field}`}><span className={badgeClass(finding.severity)}>{finding.severity === "REVIEW" ? "Needs review" : finding.severity === "WARNING" ? "Please note" : "Information"}</span><strong>{finding.title}</strong><p>{finding.human_reason}</p>{finding.evidence?.map((evidence, index) => <EvidenceValue key={index} role={evidence.role} value={evidence.value} code={finding.code} label={evidence.label} />)}</article>) : noAgentProposal ? <p className="agent-no-evidence-finding"><strong>No explicit measurement evidence was found.</strong><span>The agent completed the check, but none of the available source fields contained a reliable size and UOM.</span></p> : <p className="muted">No additional findings. The existing Excel values passed the available checks.</p>}</div>
@@ -235,6 +238,34 @@ function ReviewExplanation({ item }: { item: JobItem }) {
       <h3>{display(legacySize)} {display(legacyUom)} in legacy conflicts with {display(existingSize)} {display(existingUom)} in Excel</h3>
       <div className="business-comparison"><span><small>Legacy source (I/J)</small><strong>{display(legacySize)} {display(legacyUom)}</strong></span><b>does not agree with</b><span><small>Existing Excel (K/L/M)</small><strong>{display(existingSize)} {display(existingUom)} × {display(existingPack)}</strong></span></div>
       <p className="decision-note"><strong>Why review?</strong> {display(legacyUom)} and {display(existingUom)} measure different things, so the system cannot safely convert them without product-specific evidence.</p>
+    </section>;
+  }
+  if (codes.has("LINKED_SIZE_AND_PACK_SUGGESTION")) {
+    const linked = (item.findings || []).find(finding => finding.code === "LINKED_SIZE_AND_PACK_SUGGESTION");
+    const countEvidence = linked?.evidence?.find(row => row.role === "EXPECTED");
+    const size = item.field_proposals.standard_size;
+    const pack = item.field_proposals.standard_pack_size;
+    return <section className="review-explanation">
+      <p className="eyebrow">What needs attention</p>
+      <h3>{display(existingSize)} {display(existingUom)} × {display(existingPack)} in Excel, or {display(size)} {display(existingUom)} × {display(pack)}? Same total, different split</h3>
+      <div className="business-comparison three-way">
+        <span><small>Legacy source (I/J)</small><strong>{display(legacySize)} {display(legacyUom)}</strong></span>
+        <b>× count in description</b>
+        <span><small>Description says</small><strong>{display(countEvidence?.value)}</strong></span>
+        <b>=</b>
+        <span><small>Suggested (K/L/M)</small><strong>{display(size)} {display(existingUom)} × {display(pack)}</strong></span>
+      </div>
+      <p className="decision-note"><strong>Decision:</strong> the total does not change. Approve if each pack is sold or consumed on its own, keep the Excel values if the whole item is the unit, or enter different values.</p>
+    </section>;
+  }
+  if (codes.has("DESCRIPTION_PACK_COUNT_DIFFERS")) {
+    const finding = (item.findings || []).find(f => f.code === "DESCRIPTION_PACK_COUNT_DIFFERS");
+    const stated = finding?.evidence?.find(row => row.role === "EXPECTED");
+    return <section className="review-explanation">
+      <p className="eyebrow">What needs attention</p>
+      <h3>The description counts differently from Excel's pack size {display(existingPack)}</h3>
+      <div className="business-comparison"><span><small>Description says</small><strong>{display(stated?.value)}</strong></span><b>does not agree with</b><span><small>Existing Excel (K/L/M)</small><strong>{display(existingSize)} {display(existingUom)} × {display(existingPack)}</strong></span></div>
+      <p className="decision-note"><strong>Why review?</strong> Nothing here says which one is current, so no value is suggested. Keep the Excel values or enter the confirmed pack size.</p>
     </section>;
   }
   if (codes.has("SIGNIFICANT_LEGACY_SIZE_MISMATCH")) {
@@ -275,6 +306,10 @@ function EvidenceValue({ role, value, code, label: providedLabel }: { role: stri
       ? (role === "CURRENT" ? "Existing Excel UOM" : "Legacy source UOM")
       : code === "SIGNIFICANT_LEGACY_SIZE_MISMATCH"
         ? (role === "CURRENT" ? "Existing Excel size" : "Legacy comparison size")
+      : code === "LINKED_SIZE_AND_PACK_SUGGESTION"
+        ? (role === "CURRENT" ? "Existing Excel K/L/M" : "Count in the description")
+      : code === "DESCRIPTION_PACK_COUNT_DIFFERS"
+        ? (role === "CURRENT" ? "Existing Excel pack size" : "Count in the description")
         : role === "CURRENT" ? "Evidence found" : "Interpretations checked";
   if (Array.isArray(value)) {
     return <div className="evidence-readable"><strong>{label}</strong><div className="interpretation-list">{value.map((candidate, index) => {

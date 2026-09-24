@@ -110,6 +110,22 @@ export function ChatPage() {
     }
   };
 
+  const [restarting, setRestarting] = useState(false);
+  const restartProcessing = async () => {
+    if (!jobId) return;
+    setRestarting(true);
+    setError("");
+    try {
+      await startProcessing(jobId);
+      append({ role: "assistant", text: "Processing again from the start of the workbook." });
+      await queryClient.invalidateQueries({ queryKey: ["job", jobId] });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not restart processing");
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   const stats = summary.data?.stats;
   const exporting = exporter.isPending || job.data?.status === "EXPORTING";
   // A workbook from an earlier version of the exporter is rebuilt rather than offered.
@@ -142,7 +158,7 @@ export function ChatPage() {
             </div>
           </div>
         </div>}
-        {job.data?.status === "FAILED" && <div className="alert error">{job.data.error || "Processing failed."}</div>}
+        {job.data?.status === "FAILED" && <div className="alert error failed-job"><span>{job.data.error || "Processing failed."}</span><button className="secondary" disabled={restarting} onClick={restartProcessing}>{restarting ? "Starting…" : "Process again"}</button></div>}
         {reviewReady && stats && <div className="message assistant result-message">
           <div className="avatar">DFI</div>
           <div className="bubble result-card">
