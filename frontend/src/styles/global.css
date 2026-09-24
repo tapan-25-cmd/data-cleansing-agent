@@ -648,3 +648,4 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
 .acc-task-example small { color: #6d838c; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .acc-task-example strong { color: #173f35; font: 700 15px Manrope; }
 .acc-task-example i { color: #8d9ea5; font: 700 18px Manrope; font-style: normal; }
+.j-none { background: #c5ced2; }

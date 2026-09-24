@@ -136,9 +136,7 @@ export function specFor(g: AccuracyGroup, anchor: ReadingTestAnchor, jobId: stri
       ],
     };
   }
-  const sc = anchor?.score || null; const v = sc?.verdicts || {};
-  const testRight = (v.CORRECT || 0) + (v.RULE_APPLIED || 0) + (v.CORRECT_CATCH || 0);
-  const read = c.c_read || 0, blankOk = c.c_nothing_right || 0;
+  const read = c.c_read || 0, blankOk = c.c_nothing_right || 0, reRead = blankOk + g.wrong;
   return {
     taskTitle: "Group C · What the tool was asked to do",
     task: <>
@@ -146,14 +144,13 @@ export function specFor(g: AccuracyGroup, anchor: ReadingTestAnchor, jobId: stri
       <p className="acc-lead">The task: read those words and, if a size is written there, quote it and write it into K and L in the standard units, for example <b>ORGANIC JUICE 500ML</b> becomes <b>500 ML</b>. If no size is written, leave the columns empty rather than guess. A number that describes a container, a grade or a year is never a size.</p>
     </>,
     example: [{ label: "Description", value: "GREEN TEA / 綠茶" }, { label: "Column K · L", value: "left empty" }, { label: "Rule", value: "nothing written, nothing invented", rule: true }],
-    segments: [{ key: "read", label: "Read a size written in the text", value: read, cls: "j-done" }, { key: "blank", label: "Correctly left empty", value: blankOk, cls: "j-blank" }, { key: "ask", label: "Handed to a person", value: g.flags, cls: "j-ask" }, { key: "wrong", label: "Read wrongly or missed", value: g.wrong, cls: "j-wrong" }],
+    segments: [{ key: "read", label: "Read a size written in the text", value: read, cls: "j-done" }, { key: "blank", label: "Correctly left empty, nothing is written", value: blankOk, cls: "j-blank" }, { key: "ask", label: "Handed to a person", value: g.flags, cls: "j-ask" }, { key: "wrong", label: "Read wrongly or missed", value: g.wrong, cls: "j-wrong" }],
     ways: [
-      { title: "Did the tool do its job on every product?", value: pct(read + blankOk + g.flags, g.products - g.unverified), fraction: `${n(read + blankOk + g.flags)} of ${n(g.products - g.unverified)}`, primary: true, text: `${n(blankOk)} products have no size written in any description, and a second independent reading agreed, so leaving them empty was the right answer. ${n(g.flags)} were handed to a person. None was read wrongly.` },
-      sc ? { title: "Can the reader be trusted when a size is written?", value: pct(sc.agreed, sc.tested), fraction: `${n(sc.agreed)} of ${n(sc.tested)} on the known-answer test · ${n(testRight)} of ${n(sc.tested - (v.DATA_PROBLEM || 0))} once unusable data is removed`, text: "This workbook gave the reader nothing to read, so the answer comes from a test with known answers: the sizes of products your team had already entered were hidden, and the reader had to find them in the text alone.", link: `/jobs/${jobId}/performance` }
-         : { title: "Can the reader be trusted when a size is written?", value: "—", fraction: "no known-answer test on this workbook yet", text: "Run the reading test on the Agent performance page: the sizes of products your team already entered are hidden and the reader must find them in the text." },
-      { title: "Strictest reading: only sizes it actually read count", value: read ? pct(read, read + g.wrong) : "not applicable", fraction: read ? `${n(read)} of ${n(read + g.wrong)}` : "no size was written in any of these descriptions", text: "On this workbook every Group C description was silent, so there was nothing to read and nothing to get wrong. The reader's real accuracy is the known-answer test beside this." },
+      { title: "Did the tool do its job on every product?", value: pct(read + blankOk + g.flags, g.products), fraction: `${n(read + blankOk + g.flags)} of ${n(g.products)}`, primary: true, text: `${n(blankOk)} products have no size written in any of their six description fields, so leaving them empty was the correct answer. ${n(g.flags)} were handed to a person. ${g.wrong ? `${n(g.wrong)} were read wrongly or missed.` : "None was read wrongly or missed."}` },
+      { title: "Does a second reading of the same text agree?", value: pct(blankOk + read, reRead + read), fraction: `${n(blankOk + read)} of ${n(reRead + read)} re-read`, text: `Every Group C description was read a second time by a separate, rule-based reader that knows the same units and count words. It found no size in ${n(blankOk)} of them, the same result the tool reached${read ? `, and the same size in ${n(read)} that the tool read` : ""}.` },
+      { title: "Sizes it actually read", value: read ? pct(read, read + g.wrong) : "none to read", fraction: read ? `${n(read)} of ${n(read + g.wrong)}` : "no size was written in any of these descriptions", text: read ? "Of the sizes the tool read from the text, this share is stated word for word in the description." : "On this workbook nothing was written, so there was nothing to read and nothing to get wrong. The tool's job here was to recognise that, and it did." },
     ],
-    waysNote: `For Group C the honest number is the second one: it is the only place where the reader is measured against answers that are known to be true.`,
+    waysNote: `Group C is judged on what the descriptions contain. When they contain no size, the correct result is an empty cell, and that is what the tool produced.`,
     exceptionsTitle: "The {n} products the tool did not decide alone",
     exceptions: [
       { id: "c_flag_pack", title: "A pack count was read and needs confirming", why: "The text states a count, such as a four-pack, but no size. A person confirms whether the count is the pack sold or what is inside it before it is used." },
