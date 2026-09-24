@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { AccuracyGroup, AccuracyKind, AccuracySet, ComparisonValues, getAccuracy, getAccuracySet, getRulesGuide, ReadingTestAnchor } from "../api/client";
 import { JobTabs } from "./JobTabs";
+import { AccuracyGroupView, specFor } from "./AccuracyGroupView";
 
 const groupName: Record<string, string> = { A: "Group A", B: "Group B", C: "Group C" };
 const groupWhat: Record<string, string> = { A: "Values were already filled in. We checked them.", B: "Values were missing. We filled them in from the older size field.", C: "Nothing usable existed. We read the descriptions." };
@@ -34,7 +35,7 @@ function ladder(g: AccuracyGroup, anchor: ReadingTestAnchor): Ladder[] {
 
 export function AccuracyPage() {
   const { jobId = "" } = useParams();
-  const [active, setActive] = useState("A");
+  const [active, setActive] = useState("B");
   const [open, setOpen] = useState<{ group: AccuracyGroup; set: AccuracySet } | null>(null);
   const [page, setPage] = useState(1);
   const [showMethod, setShowMethod] = useState(true);
@@ -92,57 +93,14 @@ export function AccuracyPage() {
         </button>)}
       </div>
 
-      {/* 3. The selected group, one fixed structure */}
-      <section className="ledger-shell acc-card">
-        <div className="ledger-meta"><strong>{groupName[g.group]} · {groupWhat[g.group]}</strong><span>coverage {g.coverage_percent ?? "—"}% of {n(g.products)} products</span></div>
-        <div className="acc-sum in-card">
-          <Step label="Products" value={n(g.products)} sub="in this group" />
-          <i>−</i><Step label="Not checkable" value={n(g.unverified)} muted sub="no witness exists" />
-          <i>−</i><Step label="Sent to a person" value={n(g.flags)} muted sub={g.alarms ? `${n(g.alarms)} of them were not needed` : "a person decides"} />
-          <i>=</i><Step label="Checked" value={n(g.scored)} sub="can be scored" />
-          <i>→</i><Step label="Correct" value={n(g.right)} good sub={`${n(g.wrong)} wrong`} />
-          <i>=</i><Step label="Accuracy" value={g.accuracy_percent == null ? "—" : `${g.accuracy_percent}%`} good sub="correct ÷ checked" />
-        </div>
-        <p className="acc-reading">In words: {groupName[g.group]} has {n(g.products)} products. {n(g.unverified)} cannot be checked and {n(g.flags)} went to a person, so {n(g.scored)} were checked. {n(g.right)} of those are right, {n(g.wrong)} wrong. {n(g.right)} ÷ {n(g.scored)} = <b>{g.accuracy_percent == null ? "—" : `${g.accuracy_percent}%`}</b>.{g.coverage_percent != null && g.coverage_percent < 50 ? ` Only ${g.coverage_percent}% of the group could be checked, so read this number with that in mind.` : ""}</p>
-        <div className="acc-meter wide" title="green correct · purple wrong · teal sent to a person · grey not checkable">
-          <span className="m-right" style={{ width: `${100 * g.right / Math.max(1, g.products)}%` }} /><span className="m-wrong" style={{ width: `${100 * g.wrong / Math.max(1, g.products)}%` }} /><span className="m-flag" style={{ width: `${100 * g.flags / Math.max(1, g.products)}%` }} /><span className="m-none" style={{ width: `${100 * g.unverified / Math.max(1, g.products)}%` }} />
-        </div>
-        {(g.group === "C" && r.reading_test?.score) || (g.group === "A" && r.disputed_a_rows) ? <div className="acc-inline-notes">
-          {g.group === "A" && r.disputed_a_rows > 0 && <span className="status-badge tone-all">includes {r.disputed_a_rows} disputed A rows, all sent to a person</span>}
-          {g.group === "C" && r.reading_test?.score && <Link className="status-badge tone-all" to={`/jobs/${jobId}/performance`}>Reader tested on known answers: {n(r.reading_test.score.agreed)} of {n(r.reading_test.score.tested)} →</Link>}
-        </div> : null}
-      </section>
+      {/* 3. The selected group */}
+      <AccuracyGroupView jobId={jobId} g={g} spec={specFor(g, r.reading_test, jobId)} />
 
       <section className="ledger-shell acc-card">
         <button className="ledger-meta as-button" onClick={() => setShowMethod(v => !v)}><strong>How we got this number</strong><span>{showMethod ? "hide" : "show"}</span></button>
         {showMethod && <ol className="rule-steps method-steps in-card">{(guide.data?.accuracy_method?.[g.group] || []).map((step, i) => <li key={i}><span>{fill(step, g)}</span></li>)}</ol>}
       </section>
 
-      <section className="ledger-shell acc-card">
-        <div className="ledger-meta"><strong>Where every product landed</strong><span>click a row to see its products</span></div>
-        <div className="ledger-table-wrap"><table className="ledger-table acc-table"><thead><tr><th>Outcome</th><th>Products</th><th></th><th>Counted as</th></tr></thead><tbody>
-          {sections.map(([title, kinds]) => {
-            const list = g.sets.filter(s => kinds.includes(s.kind) && s.products > 0).sort((a, b) => b.products - a.products);
-            const total = list.reduce((t, s) => t + s.products, 0);
-            if (!list.length && !kinds.includes("WRONG")) return null;
-            return [
-              <tr key={title} className="acc-section-row"><td colSpan={4}><span className={`dot ${kindTone[kinds[0]]}`} />{title} · {n(total)}</td></tr>,
-              ...list.map(s => <tr key={s.id} onClick={() => { setOpen({ group: g, set: s }); setPage(1); }} title={s.reason}>
-                <td><strong>{s.name}</strong></td>
-                <td className="num">{n(s.products)}</td>
-                <td className="barcell"><span className={`bar kind-${s.kind.toLowerCase()}`}><i style={{ width: `${Math.max(0.6, 100 * s.products / Math.max(1, g.products))}%` }} /></span></td>
-                <td><span className={`status-badge ${kindTone[s.kind]} ${s.kind === "CONSISTENT" ? "tint" : ""}`}>{kindWord[s.kind]}</span></td>
-              </tr>),
-              ...(!list.length ? [<tr key={`${title}-none`} className="inert"><td colSpan={4} className="muted">Nothing counted against us in this group</td></tr>] : []),
-            ];
-          })}
-        </tbody></table></div>
-      </section>
-
-      <section className="ledger-shell acc-card">
-        <button className="ledger-meta as-button" onClick={() => setShowLadder(v => !v)}><strong>Other ways to count it</strong><span>{showLadder ? "hide" : "show"}</span></button>
-        {showLadder && <div className="acc-ladder in-card">{ladder(g, r.reading_test).map((l, i) => <div key={i} className={`acc-ladder-row ${l.reported ? "reported" : ""}`}><span>{l.label}</span><span className="frac">{n(l.num)} ÷ {n(l.den)}</span><b>{pct(l.num, l.den)}</b><span className="ratio"><i style={{ width: `${l.den ? 100 * l.num / l.den : 0}%` }} /></span>{l.link && <Link className="status-badge tone-all" to={`/jobs/${jobId}/performance`}>Agent performance →</Link>}</div>)}</div>}
-      </section>
     </>}
 
     {open && <aside className="result-detail" aria-modal="true" role="dialog">

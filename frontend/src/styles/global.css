@@ -605,3 +605,46 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
 .acc-reading b { color: #23573a; }
 .acc-hero2 .acc-reading { grid-column: 2; padding-top: 0; }
 .acc-step em { line-height: 1.35; }
+
+/* Group B view */
+.acc-lead { margin: 0; padding: 16px 22px 12px; color: #2c4a56; font-size: 14px; line-height: 1.6; max-width: 900px; }
+.acc-job { padding: 0 22px 18px; display: grid; gap: 10px; }
+.acc-job-bar { display: flex; height: 12px; gap: 2px; border-radius: 6px; overflow: hidden; background: #eef2f0; }
+.acc-job-bar span, .acc-job-legend i { display: block; }
+.j-done { background: #3f8f5b; } .j-ask { background: #1f9d94; } .j-blank { background: #9aa5b1; } .j-wrong { background: #8a63c9; }
+.acc-job-legend { display: flex; flex-wrap: wrap; gap: 18px; color: #4f6670; font-size: 12.5px; }
+.acc-job-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.acc-job-legend i { width: 10px; height: 10px; border-radius: 3px; }
+.acc-job-legend b { color: #173f35; }
+.acc-ways { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px 22px 8px; }
+.way { display: grid; align-content: start; gap: 6px; padding: 18px; border: 1px solid #dfe7e4; border-radius: 12px; background: #fbfcfb; }
+.way.primary { background: #173f35; border-color: #173f35; }
+.way small { color: #6d838c; font-size: 11px; font-weight: 700; line-height: 1.4; }
+.way strong { color: #173f35; font: 700 34px/1 Manrope; }
+.way span { color: #5f7580; font-size: 12px; }
+.way p { margin: 6px 0 0; color: #4f6670; font-size: 12.5px; line-height: 1.55; }
+.way.primary small, .way.primary span, .way.primary p { color: rgba(255,255,255,.8); }
+.way.primary strong { color: #c9f36b; }
+.acc-note { margin: 0; padding: 8px 22px 18px; color: #6e838c; font-size: 12.5px; line-height: 1.55; }
+.acc-exceptions { display: grid; gap: 8px; padding: 14px 22px 18px; }
+.acc-exception > button { display: grid; grid-template-columns: 56px 1fr auto; gap: 14px; align-items: start; width: 100%; padding: 14px 16px; border: 1px solid #dfe7e4; border-radius: 12px; background: white; text-align: left; cursor: pointer; }
+.acc-exception > button:hover, .acc-exception.open > button { border-color: #6e997a; background: #f6faf6; }
+.acc-exception > button > b { color: #173f35; font: 700 26px/1 Manrope; }
+.acc-exception > button strong { display: block; color: #173f35; font-size: 13.5px; }
+.acc-exception > button p { margin: 4px 0 0; color: #5f7580; font-size: 12.5px; line-height: 1.5; }
+.acc-exception > button em { color: #2f7fc1; font-style: normal; font-size: 12px; }
+.acc-exception-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 12.5px; }
+.acc-exception-table th { padding: 8px 12px; background: #f1f5f3; color: #637a83; font-size: 9.5px; letter-spacing: .07em; text-align: left; text-transform: uppercase; }
+.acc-exception-table td { padding: 9px 12px; border-top: 1px solid #edf1ef; color: #36515d; vertical-align: top; }
+.acc-exception-table td small { display: block; color: #7b8f97; }
+@media (max-width: 1050px) { .acc-ways { grid-template-columns: 1fr; } }
+
+.acc-task { display: grid; gap: 10px; padding: 16px 22px 4px; }
+.acc-task .acc-lead { padding: 0; }
+.acc-lead b { color: #173f35; font-weight: 700; }
+.acc-task-example { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+.acc-task-example span { display: grid; gap: 2px; padding: 10px 14px; border: 1px solid #dfe7e4; border-radius: 10px; background: #fbfcfb; }
+.acc-task-example span.rule { background: #f3faf4; border-color: #bfdcc6; }
+.acc-task-example small { color: #6d838c; font-size: 9.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.acc-task-example strong { color: #173f35; font: 700 15px Manrope; }
+.acc-task-example i { color: #8d9ea5; font: 700 18px Manrope; font-style: normal; }
