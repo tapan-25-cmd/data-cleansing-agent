@@ -7,6 +7,7 @@ import { OpenQuestionsPage } from "../pages/OpenQuestionsPage";
 import { RulesPage } from "../pages/RulesPage";
 import { PipelinePage } from "../pages/PipelinePage";
 import { AccuracyPage } from "../pages/AccuracyPage";
+import { BlindTestPage } from "../pages/BlindTestPage";
 
 export function App() {
   return <div className="app-shell">
@@ -31,6 +32,7 @@ export function App() {
         <Route path="/rules" element={<RulesPage />} />
         <Route path="/jobs/:jobId/pipeline" element={<PipelinePage />} />
         <Route path="/jobs/:jobId/accuracy" element={<AccuracyPage />} />
+        <Route path="/jobs/:jobId/blind-test" element={<BlindTestPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

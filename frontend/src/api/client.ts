@@ -569,3 +569,15 @@ export type AccuracyReport = { status: "BUILDING" } | { status: "FAILED"; error:
 export type AccuracySetRow = { row_number: number; item_no: string; group: string; product: string; product_local: string; legacy: string; status: string; status_label: string; values: ComparisonValues; suggestion: ComparisonValues | null; comment: string; witness: string };
 export const getAccuracy = (jobId: string) => request<AccuracyReport>(`/api/jobs/${jobId}/accuracy`);
 export const getAccuracySet = (jobId: string, setId: string, page: number) => request<{ set_id: string; rows: AccuracySetRow[]; total: number; page: number; page_size: number }>(`/api/jobs/${jobId}/accuracy/${setId}?page=${page}`);
+
+// --- Blind tests ---------------------------------------------------------------
+export type BlindMutation = { id: string; name: string; why: string; tested?: number; CAUGHT?: number; NOTED_ONLY?: number; MISSED?: number };
+export type BlindTestDoc = { kind: string; status: "RUNNING" | "READY" | "FAILED"; error?: string; version?: string; started_at?: string; finished_at?: string; summary?: Record<string, unknown> };
+export type BlindTests = {
+  mutations: BlindMutation[];
+  tests: Record<string, BlindTestDoc>;
+  reading_test: { status: string | null; score: { tested: number; agreed: number; no_answer: number; verdicts: Record<string, number> } | null; prompt_version: string | null; finished_at: string | null } | null;
+};
+export const getBlindTests = (jobId: string) => request<BlindTests>(`/api/jobs/${jobId}/blind-test`);
+export const runBlindTest = (jobId: string, kind: string) => request<{ status: string }>(`/api/jobs/${jobId}/blind-test/${kind}/run`, { method: "POST" });
+export const getBlindTestRows = (jobId: string, kind: string, page: number) => request<{ rows: Array<Record<string, unknown>>; total: number; page: number; page_size: number }>(`/api/jobs/${jobId}/blind-test/${kind}/rows?page=${page}`);

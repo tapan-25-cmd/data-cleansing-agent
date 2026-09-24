@@ -60,6 +60,7 @@ export function AccuracyPage() {
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
     <JobTabs jobId={jobId} active="accuracy" />
+    <div className="acc-subnav"><button className="active">Accuracy</button><Link to={`/jobs/${jobId}/blind-test`}>Blind test</Link></div>
     {report.isError && <div className="alert error">{report.error.message}</div>}
     {report.data?.status === "FAILED" && <div className="alert error failed-job"><span>The check did not finish: {report.data.error}</span><button className="secondary" onClick={() => fetch(`/api/jobs/${jobId}/accuracy?rebuild=true`).then(() => report.refetch())}>Retry</button></div>}
     {report.data?.status === "BUILDING" && <section className="compare-loading"><span className="spinner" /><div><strong>Checking every product</strong><p>Runs once per workbook version and takes under a minute. The page refreshes by itself.</p></div></section>}
