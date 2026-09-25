@@ -10,6 +10,7 @@ import { AccuracyPage } from "../pages/AccuracyPage";
 import { BlindTestPage } from "../pages/BlindTestPage";
 import { GroupsPage } from "../pages/GroupsPage";
 import { AccuracyRulesPage, SequencePage } from "../pages/SequencePage";
+import { SampleCheckPage } from "../pages/SampleCheckPage";
 
 export function App() {
   return <div className="app-shell">
@@ -38,6 +39,7 @@ export function App() {
         <Route path="/jobs/:jobId/pipeline" element={<PipelinePage />} />
         <Route path="/jobs/:jobId/accuracy" element={<AccuracyPage />} />
         <Route path="/jobs/:jobId/blind-test" element={<BlindTestPage />} />
+        <Route path="/jobs/:jobId/sample-check" element={<SampleCheckPage />} />
         <Route path="/jobs/:jobId/groups" element={<GroupsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />

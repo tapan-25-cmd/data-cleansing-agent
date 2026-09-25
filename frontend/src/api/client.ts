@@ -638,3 +638,13 @@ export const getShapes = () => request<Shapes>("/api/rules/shapes");
 export type DocName = "sequence" | "accuracy-rules";
 export const getDocument = (name: DocName) => request<{ path: string; markdown: string }>(`/api/rules/${name}`);
 export const getSequence = () => getDocument("sequence");
+
+// --- Sample check: a second model judges a fixed sample per group -------------------
+export type SampleFigure = { right: number; wrong: number; cant_tell: number; judged: number; percent: number | null; margin: number | null; too_few: boolean };
+export type SampleCheckGroup = SampleFigure & { group: OutcomeGroup; name: string; question: string; sample: number; population: number; verdict_words: Record<string, string>; person: SampleFigure; agreement: { both: number; agree: number } };
+export type SampleCheckMeta = { group: OutcomeGroup; name: string; question: string; population: number; verdict_words: Record<string, string> };
+export type SampleCheck = { status: "NOT_RUN" | "RUNNING" | "READY" | "FAILED"; error?: string; done?: number; total?: number; judged_at?: string; calls?: number; model_id?: string; size?: number; groups: SampleCheckGroup[]; groups_meta: SampleCheckMeta[]; provider_is_real: boolean; judge_model: string | null };
+export type SampleCheckRow = { row_number: number; item_no: string; group: OutcomeGroup; verdict: "RIGHT" | "WRONG" | "CANT_TELL"; verdict_label: string; basis: string; reason: string; evidence: Array<{ field: string; fragment: string }>; error?: string; product: string; product_local: string; descriptions: Record<string, string | null>; legacy: string; excel: Record<string, string | number | null>; tool: { label: string; reason: string }; person: "RIGHT" | "WRONG" | null };
+export const getSampleCheck = (jobId: string) => request<SampleCheck>(`/api/jobs/${jobId}/sample-check`);
+export const getSampleCheckRows = (jobId: string, group: OutcomeGroup) => request<{ group: string; rows: SampleCheckRow[] }>(`/api/jobs/${jobId}/sample-check/rows?group=${group}`);
+export const runSampleCheck = (jobId: string, size: number) => request<{ status: string }>(`/api/jobs/${jobId}/sample-check/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ size }) });

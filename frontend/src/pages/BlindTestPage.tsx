@@ -29,7 +29,7 @@ export function BlindTestPage() {
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
     <JobTabs jobId={jobId} active="accuracy" />
-    <div className="acc-subnav"><Link to={`/jobs/${jobId}/accuracy`}>Accuracy</Link><button className="active">Blind test</button></div>
+    <div className="acc-subnav"><Link to={`/jobs/${jobId}/accuracy`}>Accuracy</Link><button className="active">Blind test</button><Link to={`/jobs/${jobId}/sample-check`}>Sample check</Link></div>
     {data.isError && <div className="alert error">{data.error.message}</div>}
 
     {d && <>

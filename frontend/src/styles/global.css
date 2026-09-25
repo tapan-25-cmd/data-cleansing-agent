@@ -789,3 +789,30 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
   .seq-document h2 { break-after: avoid; }
   .seq-text table, .seq-text tr { break-inside: avoid; }
 }
+
+/* Sample check. */
+.sc-run { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 16px 22px; margin-bottom: 14px; flex-wrap: wrap; }
+.sc-run-left { display: grid; gap: 4px; min-width: 260px; flex: 1; }
+.sc-run-left strong { color: #173f35; font: 700 14px Manrope; }
+.sc-run-left span { color: #6e838c; font-size: 12.5px; }
+.sc-run-left .progress-rail { margin-top: 6px; max-width: 320px; }
+.sc-run-right { display: flex; align-items: center; gap: 12px; }
+.sc-run-right label { color: #4f6670; font-size: 12.5px; display: flex; gap: 8px; align-items: center; }
+.sc-run-right select { padding: 6px 10px; border: 1px solid #dfe7e4; border-radius: 8px; background: white; font: inherit; }
+.sc-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+.sc-card { display: grid; align-content: start; gap: 6px; padding: 20px 20px 18px; border: 1px solid #dfe7e4; border-radius: 14px; background: white; text-align: left; cursor: pointer; box-shadow: 0 4px 14px rgba(16,42,67,.04); }
+.sc-card:disabled { cursor: default; }
+.sc-card:not(:disabled):hover, .sc-card.active { border-color: #173f35; }
+.sc-card.active { box-shadow: 0 0 0 2px #173f35 inset; }
+.sc-card small { color: #6d838c; font-size: 10px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.sc-card em { color: #2c4a56; font-size: 13px; font-style: normal; }
+.sc-big { display: block; margin-top: 8px; color: #173f35; font: 800 40px/1 Manrope; }
+.sc-big.muted { color: #b9c9c4; }
+.sc-card > span { color: #4f6670; font-size: 12.5px; line-height: 1.45; }
+.sc-card .sc-sub { color: #7d9098; font-size: 11.5px; }
+.sc-table td small { display: block; color: #7d9098; font-size: 11px; }
+.sc-you { display: inline-flex; gap: 4px; }
+.sc-you button { width: 28px; height: 28px; border: 1px solid #dfe7e4; border-radius: 8px; background: white; color: #7d9098; cursor: pointer; font-size: 13px; }
+.sc-you button.on { background: #173f35; border-color: #173f35; color: white; }
+.sc-you button.on.wrong { background: #b4442f; border-color: #b4442f; }
+@media (max-width: 900px) { .sc-cards { grid-template-columns: 1fr; } }
