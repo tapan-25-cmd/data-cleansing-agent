@@ -635,4 +635,6 @@ export type Shapes = { fields: ShapeField[]; groups: Record<OutcomeGroup, { name
 export const getShapes = () => request<Shapes>("/api/rules/shapes");
 
 // --- Pipeline sequence (docs/pipeline-sequence.md) ---------------------------------
-export const getSequence = () => request<{ path: string; markdown: string }>("/api/rules/sequence");
+export type DocName = "sequence" | "accuracy-rules";
+export const getDocument = (name: DocName) => request<{ path: string; markdown: string }>(`/api/rules/${name}`);
+export const getSequence = () => getDocument("sequence");

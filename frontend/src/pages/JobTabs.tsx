@@ -10,6 +10,7 @@ const tabs = [
   { key: "rules", label: "Rules", path: "rules" },
   { key: "pipeline", label: "Pipeline", path: "pipeline" },
   { key: "sequence", label: "Sequence", path: "sequence" },
+  { key: "accuracy-rules", label: "Accuracy rules", path: "accuracy-rules" },
 ];
 
 export function JobTabs({ jobId, active }: { jobId: string; active: string }) {

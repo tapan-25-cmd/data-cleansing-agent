@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { marked } from "marked";
-import { getSequence } from "../api/client";
+import { DocName, getDocument } from "../api/client";
 import { JobTabs } from "./JobTabs";
 
 type Part = { kind: "text"; text: string } | { kind: "diagram"; code: string };
@@ -12,7 +12,7 @@ type Section = { id: string; title: string; parts: Part[] };
 // each Mermaid block is drawn as a diagram.
 function sections(markdown: string): { title: string; intro: Part[]; list: Section[] } {
   const [head, ...rest] = markdown.split(/^## /m);
-  const title = (head.match(/^# (.*)$/m)?.[1] || "Pipeline sequence").trim();
+  const title = (head.match(/^# (.*)$/m)?.[1] || "").trim();
   const split = (text: string): Part[] => text.split(/```mermaid\n([\s\S]*?)```/).map((chunk, i) =>
     i % 2 ? { kind: "diagram" as const, code: chunk } : { kind: "text" as const, text: chunk }).filter(p => p.kind === "diagram" || p.text.trim());
   const list = rest.map((body, i) => {
@@ -69,9 +69,15 @@ function Parts({ parts }: { parts: Part[] }) {
     : <div key={i} className="seq-text" dangerouslySetInnerHTML={{ __html: marked.parse(part.text, { async: false }) as string }} />)}</>;
 }
 
-export function SequencePage() {
+// A document from docs/ shown one section at a time. The Sequence and Accuracy rules tabs
+// are the same page over different files.
+type DocSpec = { name: DocName; eyebrow: string; tab: string; blurb: string; file: string };
+export const SequencePage = () => <DocPage name="sequence" eyebrow="Sequence" tab="sequence" file="pipeline-sequence.md" blurb="Every call, database write and AI call, from upload to download. Pick a step to see its diagram." />;
+export const AccuracyRulesPage = () => <DocPage name="accuracy-rules" eyebrow="Accuracy rules" tab="accuracy-rules" file="accuracy-rules.md" blurb="How the accuracy is calculated, per group, with the rule, what it counts as, the count and one real product each. Pick a section." />;
+
+function DocPage({ name, eyebrow, tab, blurb, file }: DocSpec) {
   const { jobId = "" } = useParams();
-  const doc = useQuery({ queryKey: ["sequence"], queryFn: getSequence });
+  const doc = useQuery({ queryKey: ["document", name], queryFn: () => getDocument(name) });
   const parsed = useMemo(() => (doc.data ? sections(doc.data.markdown) : null), [doc.data]);
   // ?section=5 opens "5. Processing" directly, so a step can be linked.
   const [params, setParams] = useSearchParams();
@@ -81,19 +87,19 @@ export function SequencePage() {
   const download = () => {
     if (!doc.data) return;
     const url = URL.createObjectURL(new Blob([doc.data.markdown], { type: "text/markdown" }));
-    const a = Object.assign(document.createElement("a"), { href: url, download: "pipeline-sequence.md" });
+    const a = Object.assign(document.createElement("a"), { href: url, download: file });
     a.click(); URL.revokeObjectURL(url);
   };
 
   return <div className="results-page acc-page" ref={top}>
     <header className="results-header">
-      <div><p className="eyebrow">Sequence</p><h1>{parsed?.title || "Pipeline sequence"}</h1><p>Every call, database write and AI call, from upload to download. Pick a step to see its diagram.</p></div>
+      <div><p className="eyebrow">{eyebrow}</p><h1>{parsed?.title || eyebrow}</h1><p>{blurb}</p></div>
       <div className="seq-actions">
         {doc.data && <button className="secondary" onClick={download}>Download .md</button>}
         <Link className="secondary" to="/">← Back to conversation</Link>
       </div>
     </header>
-    {jobId && <JobTabs jobId={jobId} active="sequence" />}
+    {jobId && <JobTabs jobId={jobId} active={tab} />}
     {doc.isLoading && <section className="compare-loading"><span className="spinner" /><div><strong>Loading the document</strong></div></section>}
     {doc.isError && <div className="alert error">{doc.error.message}</div>}
     {parsed && current && <>
