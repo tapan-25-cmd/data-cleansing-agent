@@ -777,3 +777,15 @@ button.link { padding: 0; margin-top: 6px; border: none; background: none; color
 .cm-divider { margin: 22px 0 10px; color: #6d838c; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .cm-loading { padding: 6px 10px; }
 @media (max-width: 1050px) { .cm-tiles, .cm-facts { grid-template-columns: 1fr; } .cm-spec { grid-template-columns: 1fr; gap: 4px; } }
+
+/* Document layout: one continuous page, printable. */
+.seq-document .seq-body { gap: 6px; max-width: 980px; }
+.seq-document h2 { margin: 18px 0 4px; color: #173f35; font: 700 16px Manrope; }
+.seq-document .seq-text table { font-size: 12.5px; }
+@media print {
+  .sidebar, .results-tabs, .results-header a, .results-header button, .seq-actions { display: none !important; }
+  .app-shell, .workspace, .results-page { display: block; padding: 0; background: white; min-height: 0; }
+  .ledger-shell, .acc-card { box-shadow: none; border: 0; }
+  .seq-document h2 { break-after: avoid; }
+  .seq-text table, .seq-text tr { break-inside: avoid; }
+}

@@ -71,11 +71,11 @@ function Parts({ parts }: { parts: Part[] }) {
 
 // A document from docs/ shown one section at a time. The Sequence and Accuracy rules tabs
 // are the same page over different files.
-type DocSpec = { name: DocName; eyebrow: string; tab: string; blurb: string; file: string };
+type DocSpec = { name: DocName; eyebrow: string; tab: string; blurb: string; file: string; layout?: "sections" | "document" };
 export const SequencePage = () => <DocPage name="sequence" eyebrow="Sequence" tab="sequence" file="pipeline-sequence.md" blurb="Every call, database write and AI call, from upload to download. Pick a step to see its diagram." />;
-export const AccuracyRulesPage = () => <DocPage name="accuracy-rules" eyebrow="Accuracy rules" tab="accuracy-rules" file="accuracy-rules.md" blurb="How the accuracy is calculated, per group, with the rule, what it counts as, the count and one real product each. Pick a section." />;
+export const AccuracyRulesPage = () => <DocPage name="accuracy-rules" eyebrow="Accuracy rules" tab="accuracy-rules" file="accuracy-rules.md" layout="document" blurb="One page to share: the rule per group, what it counts as, the count, and an item number to look up." />;
 
-function DocPage({ name, eyebrow, tab, blurb, file }: DocSpec) {
+function DocPage({ name, eyebrow, tab, blurb, file, layout = "sections" }: DocSpec) {
   const { jobId = "" } = useParams();
   const doc = useQuery({ queryKey: ["document", name], queryFn: () => getDocument(name) });
   const parsed = useMemo(() => (doc.data ? sections(doc.data.markdown) : null), [doc.data]);
@@ -95,6 +95,7 @@ function DocPage({ name, eyebrow, tab, blurb, file }: DocSpec) {
     <header className="results-header">
       <div><p className="eyebrow">{eyebrow}</p><h1>{parsed?.title || eyebrow}</h1><p>{blurb}</p></div>
       <div className="seq-actions">
+        {doc.data && layout === "document" && <button className="secondary" onClick={() => window.print()}>Print / PDF</button>}
         {doc.data && <button className="secondary" onClick={download}>Download .md</button>}
         <Link className="secondary" to="/">← Back to conversation</Link>
       </div>
@@ -102,7 +103,13 @@ function DocPage({ name, eyebrow, tab, blurb, file }: DocSpec) {
     {jobId && <JobTabs jobId={jobId} active={tab} />}
     {doc.isLoading && <section className="compare-loading"><span className="spinner" /><div><strong>Loading the document</strong></div></section>}
     {doc.isError && <div className="alert error">{doc.error.message}</div>}
-    {parsed && current && <>
+    {parsed && layout === "document" && <article className="ledger-shell acc-card seq-card seq-document">
+      <div className="seq-body">
+        <Parts parts={parsed.intro} />
+        {parsed.list.map(s => <section key={s.id}><h2>{s.title}</h2><Parts parts={s.parts} /></section>)}
+      </div>
+    </article>}
+    {parsed && current && layout === "sections" && <>
       <nav className="acc-subnav seq-nav" aria-label="Sections">
         {parsed.list.map(s => <button key={s.id} className={s.id === current.id ? "active" : ""} onClick={() => { setParams({ section: String(Number(s.id.slice(1)) + 1) }, { replace: true }); top.current?.scrollIntoView({ behavior: "smooth" }); }}>{s.title}</button>)}
       </nav>
