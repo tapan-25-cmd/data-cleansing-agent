@@ -1,21 +1,38 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "react-router-dom";
-import { AccuracyGroup, getAccuracy, getRulesGuide, groupTitle } from "../api/client";
+import { Link, useParams, useSearchParams } from "react-router-dom";
+import { AccuracyGroup, ClientMeasuresReport, getAccuracy, getRulesGuide, groupTitle } from "../api/client";
 import { JobTabs } from "./JobTabs";
 import { AccuracyGroupView, specFor } from "./AccuracyGroupView";
+import { ConsistencyCard, FlagPrecisionCard, MeasuresOverview, RuleAccuracyCard } from "./ClientMeasures";
 
 const n = (v: number | null | undefined) => (v == null ? "—" : v.toLocaleString());
-const pct = (a: number, b: number) => (b ? `${(100 * a / b).toFixed(1)}%` : "—");
+
+// Group A is not given a percentage: agreeing with the legacy size is consistency, not
+// proof (the client's point). B and C show the client's rule accuracy and flag precision.
+function headline(g: AccuracyGroup, m?: ClientMeasuresReport) {
+  if (!m) return g.accuracy_percent == null ? "—" : `${g.accuracy_percent}%`;
+  if (g.group === "A") return n(m.consistency.exact + m.consistency.within_one + m.consistency.fluid);
+  const v = g.group === "B" ? m.rule_accuracy.percent : m.flag_precision.percent;
+  return v == null ? "—" : `${v}%`;
+}
+function subline(g: AccuracyGroup, m?: ClientMeasuresReport) {
+  if (!m) return `${n(g.right)} of ${n(g.scored)} checked`;
+  if (g.group === "A") return `match the legacy size · ${n(m.consistency.confirmed_by_text)} confirmed by the description`;
+  if (g.group === "B") return `rule accuracy · ${n(m.rule_accuracy.matched)} of ${n(m.rule_accuracy.tested)}`;
+  return `flag precision · ${n(m.flag_precision.justified)} of ${n(m.flag_precision.products)}`;
+}
 
 export function AccuracyPage() {
   const { jobId = "" } = useParams();
-  const [active, setActive] = useState("B");
+  // ?group=A opens a group directly.
+  const [params, setParams] = useSearchParams();
+  const active = ["A", "B", "C"].includes(params.get("group") || "") ? params.get("group")! : "B";
+  const setActive = (group: string) => setParams({ group }, { replace: true });
   const [showMethod, setShowMethod] = useState(true);
   const report = useQuery({ queryKey: ["accuracy", jobId], queryFn: () => getAccuracy(jobId), enabled: Boolean(jobId), retry: false, refetchInterval: q => (q.state.data?.status === "BUILDING" || (q.state.data?.status === "READY" && q.state.data.rebuilding) ? 4000 : false) });
   const guide = useQuery({ queryKey: ["rules-guide", jobId], queryFn: () => getRulesGuide(jobId) });
   const r = report.data?.status === "READY" ? report.data : null;
-  const all = r ? r.groups.reduce((a, g) => ({ products: a.products + g.products, scored: a.scored + g.scored, right: a.right + g.right, against: a.against + g.wrong + g.alarms, unverified: a.unverified + g.unverified }), { products: 0, scored: 0, right: 0, against: 0, unverified: 0 }) : null;
   const by = Object.fromEntries((r?.groups || []).map(x => [x.group, x])) as Record<string, AccuracyGroup | undefined>;
   const g = by[active] || null;
   const fill = (text: string, gr: AccuracyGroup) => text.replace(/\{(\w+)\}/g, (_, k) => {
@@ -25,7 +42,7 @@ export function AccuracyPage() {
 
   return <div className="results-page acc-page">
     <header className="results-header">
-      <div><p className="eyebrow">Accuracy</p><h1>How accurate the cleansing is</h1><p>Every product is counted, in the group of its result, and judged against that group's own question.</p></div>
+      <div><p className="eyebrow">Accuracy</p><h1>How accurate the cleansing is</h1><p>The client's three Release 1 measures, in their words, computed on this run. Our own checks follow under each group.</p></div>
       <Link className="secondary" to="/">← Back to conversation</Link>
     </header>
     <JobTabs jobId={jobId} active="accuracy" />
@@ -34,30 +51,22 @@ export function AccuracyPage() {
     {report.data?.status === "FAILED" && <div className="alert error failed-job"><span>The check did not finish: {report.data.error}</span><button className="secondary" onClick={() => fetch(`/api/jobs/${jobId}/accuracy?rebuild=true`).then(() => report.refetch())}>Retry</button></div>}
     {report.data?.status === "BUILDING" && <section className="compare-loading"><span className="spinner" /><div><strong>Checking every product</strong><p>Runs once per workbook version and takes under a minute. The page refreshes by itself.</p></div></section>}
 
-    {r && all && g && <>
-      {/* 1. The number and the sum that makes it */}
-      <section className="ledger-shell acc-card">
-        <div className="ledger-meta"><strong>Across all groups</strong><span>{n(all.products)} products · built {new Date(r.built_at).toLocaleDateString()}{r.rebuilding ? " · refreshing" : ""}</span></div>
-        <div className="acc-hero2">
-          <div className="acc-big"><strong>{pct(all.right, all.scored)}</strong><span>{n(all.right)} right of {n(all.scored)} checked</span></div>
-          <div className="acc-sum">
-            <Step label="All products" value={n(all.products)} sub="every live row in the workbook" />
-            <i>−</i><Step label="Not checkable" value={n(all.unverified)} muted sub="kept or changed with nothing in the file to compare them with" />
-            <i>=</i><Step label="Checked" value={n(all.scored)} sub="have something to compare with" />
-            <i>→</i><Step label="Right" value={n(all.right)} good sub={`${n(all.against)} of the checked count against the tool`} />
-          </div>
-          <p className="acc-reading">In words: of {n(all.products)} products, {n(all.unverified)} have nothing to check them against, so {n(all.scored)} could be checked. Of those, {n(all.right)} are right: kept rightly (A), changed rightly (B) or raised for a reason the data bears out (C). {n(all.against)} count against the tool. {n(all.right)} ÷ {n(all.scored)} = <b>{pct(all.right, all.scored)}</b>.</p>
-        </div>
-      </section>
+    {r && g && <>
+      {/* 1. The three measures, as the client set them out */}
+      {r.measures ? <MeasuresOverview m={r.measures} onOpen={setActive} /> : <div className="alert">This report was built before the client's measures were added; it refreshes by itself.</div>}
 
       {/* 2. Group selector */}
       <div className="acc-groups">
         {(["A", "B", "C"] as const).map(key => by[key]).filter((x): x is AccuracyGroup => Boolean(x)).map(x => <button key={x.group} className={`acc-group-tab ${active === x.group ? "active" : ""}`} onClick={() => setActive(x.group)}>
-          <small>{groupTitle(x.group)}</small><strong>{x.accuracy_percent == null ? "—" : `${x.accuracy_percent}%`}</strong><span>{x.question} {n(x.right)} of {n(x.scored)} · {n(x.products)} products</span>
+          <small>{groupTitle(x.group)}</small><strong>{headline(x, r.measures)}</strong><span>{subline(x, r.measures)} · {n(x.products)} products</span>
         </button>)}
       </div>
 
-      {/* 3. The selected group */}
+      {/* 3. The selected group: the client's measure first, then our checks */}
+      {r.measures && g.group === "A" && <ConsistencyCard jobId={jobId} m={r.measures} />}
+      {r.measures && g.group === "B" && <RuleAccuracyCard jobId={jobId} m={r.measures} />}
+      {r.measures && g.group === "C" && <FlagPrecisionCard jobId={jobId} m={r.measures} />}
+      <p className="cm-divider">Our checks in detail</p>
       <AccuracyGroupView jobId={jobId} g={g} spec={specFor(g)} />
 
       <section className="ledger-shell acc-card">
@@ -68,6 +77,3 @@ export function AccuracyPage() {
   </div>;
 }
 
-function Step({ label, value, sub, muted, good }: { label: string; value: string; sub?: string; muted?: boolean; good?: boolean }) {
-  return <div className={`acc-step ${muted ? "muted" : ""} ${good ? "good" : ""}`}><small>{label}</small><strong>{value}</strong>{sub && <em>{sub}</em>}</div>;
-}

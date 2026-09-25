@@ -598,10 +598,19 @@ export type AccuracyGroup = {
   group: OutcomeGroup; name: string; question: string; routes: Array<{ route: string; products: number }>; products: number; scored: number; right: number; wrong: number; confirmed: number; consistent: number;
   flags: number; alarms: number; unverified: number; coverage_percent: number | null; accuracy_percent: number | null; confirmed_percent: number | null; sets: AccuracySet[];
 };
+// The client's three Release 1 measures (email of 24 September 2026), in their wording.
+export type MeasureRow = { id: string; label: string; products: number; wrong?: boolean; justified?: boolean };
+export type ClientMeasuresReport = {
+  intro: string; eric: string; before_benchmark: string;
+  rule_accuracy: { letter: string; name: string; population: string; test: string; target: string; open: string; products: number; tested: number; matched: number; percent: number | null; rows: MeasureRow[]; rules_differ: number; pack_filled: { single_item: number; from_description: number } };
+  consistency: { products: number; already_correct: number; with_note: number; exact: number; within_one: number; fluid: number; other: number; identical: number; confirmed_by_text: number; kept_against_text: number; nothing_to_compare: number; wording: string; relabel: string };
+  correctness: { letter: string; name: string; benchmark: string; population: string; scoring: string; target: string; status: string; products: number; population_rows: Array<{ label: string; products: number }> };
+  flag_precision: { letter: string; name: string; population: string; test: string; reported: string; products: number; justified: number; percent: number | null; reasons: MeasureRow[]; needs_review: number; could_not_determine: number; invalid: number; legacy_mismatch: number; legacy_mismatch_with_proposal: number; with_comment: number; blank_comment: number; with_proposal: number; catches: string; comments: string; merchandising_resolves: number | null };
+};
 export type ReadingTestAnchor = { job_id: string; finished_at: string | null; prompt_version: string | null; score: { tested: number; agreed: number; no_answer: number; verdicts: Record<string, number> } | null } | null;
 export type AccuracyReport = { status: "BUILDING" } | { status: "FAILED"; error: string } | {
   status: "READY"; rebuilding?: boolean; version: string; built_at: string; reasoning_rows_used: number; reasoning_kept_rows_checked: number;
-  kind_labels: Record<AccuracyKind, string>; groups: AccuracyGroup[]; reading_test: ReadingTestAnchor;
+  kind_labels: Record<AccuracyKind, string>; groups: AccuracyGroup[]; reading_test: ReadingTestAnchor; measures?: ClientMeasuresReport;
 };
 export type AccuracySetRow = { row_number: number; item_no: string; group: OutcomeGroup; route: string; product: string; product_local: string; legacy: string; status: string; status_label: string; values: ComparisonValues; suggestion: ComparisonValues | null; comment: string; witness: string };
 export const getAccuracy = (jobId: string) => request<AccuracyReport>(`/api/jobs/${jobId}/accuracy`);
