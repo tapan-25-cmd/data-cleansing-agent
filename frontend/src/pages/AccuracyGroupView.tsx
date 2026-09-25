@@ -161,7 +161,7 @@ export function specFor(g: AccuracyGroup): GroupSpec {
     ways: [
       { title: "Was raising it right?", value: pct(g.right, g.scored), fraction: `${n(g.right)} of ${n(g.scored)} raised`, primary: true, text: `Every raised product is judged. ${against ? `${n(g.alarms)} were not needed and ${n(g.wrong)} left a written size unused; those count against the tool.` : "None was raised without need, and none left a written size unused."}` },
       { title: "Raised because sources disagree", value: n(disagree), fraction: `of ${n(g.products)} raised`, text: "Excel, the older field and the description give different answers, or a count could mean the pack or its contents. The tool never picks a side on its own." },
-      { title: "Raised because there is nothing to go on", value: n(nothing), fraction: `of ${n(g.products)} raised`, text: "No size is written in any of the six description fields, the older unit is in no table, a missing value is written nowhere, or a value in Excel cannot be used. Leaving it empty is the right answer." },
+      { title: "Raised because there is nothing to go on", value: n(nothing), fraction: `of ${n(g.products)} raised`, text: "No size is written in the item or web descriptions, the older unit is in no table, a missing value is written nowhere, or a value in Excel cannot be used. Leaving it empty is the right answer." },
     ],
     waysNote: "Group C is judged on its own data: whether each raise is borne out by what the file contains. Nothing here is compared with a test.",
     exceptionsTitle: "The {n} raised products, by reason",
@@ -175,7 +175,7 @@ export function specFor(g: AccuracyGroup): GroupSpec {
       { id: "c_flag_ounce", title: "The ounce could mean weight or volume", why: "An ounce of a solid is 28 grams, of a liquid 30 millilitres, and the category holds both." },
       { id: "c_flag_pack", title: "A pack count needs confirming", why: "A count such as 12PCS can be the pack sold or what is inside it. A person confirms it before it is used." },
       { id: "c_flag_conversion", title: "The converted value needs a person", why: "The older field was converted, but the description or the pack disagrees with it." },
-      { id: "c_nothing_written", title: "Nothing written to read", why: "No description states a size, and a rule-based second reading of the same six fields finds none either." },
+      { id: "c_nothing_written", title: "Nothing written to read", why: "No description states a size, and a rule-based second reading of the item and web descriptions finds none either." },
       { id: "c_blank_unit", title: "The older unit is in no table", why: "A unit such as ST has no agreed conversion. Blank is the right answer until one is agreed." },
       { id: "c_gap_review", title: "Half-filled row, a missing value was not found", why: "What could be found was filled; the rest was only suggested because a second source disagrees, or it is written nowhere." },
       { id: "c_unusable", title: "A value in Excel cannot be used", why: "Text where a number should be, or a unit that is in no table." },
