@@ -73,7 +73,7 @@ function Parts({ parts }: { parts: Part[] }) {
 // are the same page over different files.
 type DocSpec = { name: DocName; eyebrow: string; tab: string; blurb: string; file: string; layout?: "sections" | "document" };
 export const SequencePage = () => <DocPage name="sequence" eyebrow="Sequence" tab="sequence" file="pipeline-sequence.md" blurb="Every call, database write and AI call, from upload to download. Pick a step to see its diagram." />;
-export const AccuracyRulesPage = () => <DocPage name="accuracy-rules" eyebrow="Accuracy rules" tab="accuracy-rules" file="accuracy-rules.md" layout="document" blurb="One page to share: the rule per group, what it counts as, the count, and an item number to look up." />;
+export const AccuracyRulesPage = () => <DocPage name="accuracy-rules" eyebrow="Accuracy rules" tab="accuracy-rules" file="accuracy-rules.md" layout="document" blurb="Our method, per group: what we check, which second source covers it, and what needs a person or the benchmark." />;
 
 function DocPage({ name, eyebrow, tab, blurb, file, layout = "sections" }: DocSpec) {
   const { jobId = "" } = useParams();
